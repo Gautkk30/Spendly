@@ -1,0 +1,927 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useApp } from '../context/AppContext';
+import { 
+  User, 
+  Bell, 
+  Shield, 
+  Save, 
+  CheckCircle2, 
+  Upload, 
+  Plus, 
+  RefreshCw, 
+  Globe, 
+  Building, 
+  Sparkles,
+  Key,
+  Trash2,
+  LogOut
+} from 'lucide-react';
+import { CURRENCIES } from '../data/defaultData';
+import { CurrencyCode } from '../types';
+
+export const SettingsView: React.FC = () => {
+  const { 
+    user, 
+    updateUser, 
+    theme, 
+    setTheme, 
+    currency, 
+    setCurrency,
+    appName,
+    appLogo,
+    updateAppConfig,
+    switchGoogleUser,
+    activeUserId,
+    allUsers,
+    deleteUser,
+    logout
+  } = useApp();
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // Custom Branding local state
+  const [localAppName, setLocalAppName] = useState('Spendly');
+  const [localAppLogo, setLocalAppLogo] = useState('');
+  const [brandingSuccess, setBrandingSuccess] = useState(false);
+
+  // Google Switcher Dialog State
+  const [showGoogleDialog, setShowGoogleDialog] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState('');
+  const [googleName, setGoogleName] = useState('');
+  const [googleAvatar, setGoogleAvatar] = useState('');
+  
+  // Profile picture base64 state
+  const [avatar, setAvatar] = useState('');
+
+  // Setting active subcategories tab
+  const [activeTab, setActiveTab] = useState<'saas' | 'notifications' | 'security'>('saas');
+
+  // Local state for Notifications tab
+  const [emailDigest, setEmailDigest] = useState(true);
+  const [soundTriggers, setSoundTriggers] = useState(false);
+  const [budgetThreshold, setBudgetThreshold] = useState('80');
+  const [goalMilestones, setGoalMilestones] = useState(true);
+  const [notifSuccess, setNotifSuccess] = useState(false);
+
+  // Local state for Security tab
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [startupPin, setStartupPin] = useState(false);
+  const [securitySuccess, setSecuritySuccess] = useState(false);
+  const [simulatedApiKey] = useState(() => 'sp_live_' + Math.random().toString(36).substring(2, 18).toUpperCase());
+
+  const THEME_PRESETS = [
+    { id: 'light', name: 'Classic Light', desc: 'Squeaky clean light zinc layout', bg: 'bg-zinc-50', text: 'text-zinc-900', accent: 'bg-emerald-500' },
+    { id: 'dark', name: 'Spendly Dark', desc: 'Sophisticated deep charcoal base', bg: 'bg-[#09090b]', text: 'text-zinc-100', accent: 'bg-emerald-400' },
+    { id: 'midnight', name: 'Midnight Sapphire', desc: 'Cyberpunk deep navy blue canvas', bg: 'bg-[#0a0f1d]', text: 'text-zinc-100', accent: 'bg-blue-400' },
+    { id: 'forest', name: 'Forest Zen', desc: 'Rich organic sage and pine aura', bg: 'bg-[#0c140f]', text: 'text-zinc-100', accent: 'bg-teal-400' },
+    { id: 'sunset', name: 'Sunset Rose', desc: 'Warm auburn and crimson aesthetics', bg: 'bg-[#1a0e12]', text: 'text-zinc-100', accent: 'bg-rose-400' },
+    { id: 'amethyst', name: 'Neon Amethyst', desc: 'Ethereal dark fuchsia and violet dream', bg: 'bg-[#110c1c]', text: 'text-zinc-100', accent: 'bg-purple-400' }
+  ];
+
+  const isLight = theme === 'light';
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name);
+      setEmail(user.email);
+      setNotificationsEnabled(user.notificationsEnabled);
+      setAvatar(user.avatarUrl || '');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    setLocalAppName(appName);
+    setLocalAppLogo(appLogo);
+  }, [appName, appLogo]);
+
+  // Profile Picture File Upload Handler
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setAvatar(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Admin Logo File Upload Handler
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setLocalAppLogo(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim()) {
+      alert('Name and Email are required.');
+      return;
+    }
+
+    await updateUser({
+      name: name.trim(),
+      email: email.trim(),
+      notificationsEnabled,
+      avatarUrl: avatar
+    });
+
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handleSaveBranding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updateAppConfig(localAppName.trim(), localAppLogo);
+    setBrandingSuccess(true);
+    setTimeout(() => setBrandingSuccess(false), 3000);
+  };
+
+  const handleGoogleSwitchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleEmail.trim()) return;
+    
+    // Choose selected preset avatar or random fallback
+    const selectedAvatar = googleAvatar || PRESET_AVATARS[Math.floor(Math.random() * PRESET_AVATARS.length)];
+    
+    await switchGoogleUser(
+      googleEmail.trim(), 
+      googleName.trim() || undefined, 
+      selectedAvatar
+    );
+
+    setShowGoogleDialog(false);
+    setGoogleEmail('');
+    setGoogleName('');
+    setGoogleAvatar('');
+  };
+
+  const cardStyle = isLight 
+    ? 'p-6 rounded-2xl bg-white border border-zinc-200 shadow-sm transition-all' 
+    : 'p-6 rounded-2xl bg-zinc-900/30 border border-zinc-800/60 transition-all';
+
+  const inputStyle = isLight 
+    ? 'w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 focus:outline-none focus:border-zinc-400' 
+    : 'w-full bg-zinc-950 border border-zinc-800/60 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-700';
+
+  const selectStyle = isLight
+    ? 'w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs text-zinc-700 focus:outline-none focus:border-zinc-400 cursor-pointer'
+    : 'w-full bg-zinc-950 border border-zinc-800/60 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-700 cursor-pointer';
+
+  const titleStyle = isLight ? 'text-zinc-900' : 'text-zinc-100';
+  const textMutedStyle = isLight ? 'text-zinc-500' : 'text-zinc-400';
+
+  // Static switcher Google accounts list
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Standard preset avatars for the switcher
+  const PRESET_AVATARS = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100',
+    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=100',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100'
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h1 className={`text-2xl font-bold tracking-tight ${titleStyle}`}>App Configuration</h1>
+        <p className={`text-xs ${textMutedStyle}`}>Manage your SaaS profile, Google accounts, and custom app branding settings</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left Side: Sidebar controls & Multi-Account Switcher */}
+        <div className="lg:col-span-1 space-y-6">
+          
+          {/* Section 1: Navigation panel */}
+          <div className={`p-4 border rounded-2xl space-y-1 shadow-sm ${
+            isLight ? 'bg-white border-zinc-200' : 'bg-zinc-900/30 border-zinc-800/60'
+          }`}>
+            <div className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-emerald-500 uppercase tracking-wider">
+              <span>Settings Categories</span>
+            </div>
+            
+            <button 
+              onClick={() => setActiveTab('saas')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
+                activeTab === 'saas'
+                  ? isLight 
+                    ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
+                    : 'bg-zinc-900 text-white border-zinc-800'
+                  : isLight
+                    ? 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-100/50 hover:text-zinc-900'
+                    : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
+              }`}
+            >
+              <User size={14} className={activeTab === 'saas' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>SaaS Configuration</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('notifications')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
+                activeTab === 'notifications'
+                  ? isLight 
+                    ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
+                    : 'bg-zinc-900 text-white border-zinc-800'
+                  : isLight
+                    ? 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-100/50 hover:text-zinc-900'
+                    : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
+              }`}
+            >
+              <Bell size={14} className={activeTab === 'notifications' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>Notifications Alerts</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('security')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
+                activeTab === 'security'
+                  ? isLight 
+                    ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
+                    : 'bg-zinc-900 text-white border-zinc-800'
+                  : isLight
+                    ? 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-100/50 hover:text-zinc-900'
+                    : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
+              }`}
+            >
+              <Key size={14} className={activeTab === 'security' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>Security & Keyrings</span>
+            </button>
+          </div>
+
+          {/* Section 2: Google Account Switcher */}
+          <div className={`p-5 border rounded-2xl shadow-sm space-y-4 ${
+            isLight ? 'bg-white border-zinc-200' : 'bg-zinc-900/30 border-zinc-800/60'
+          }`}>
+            <div className="space-y-0.5">
+              <h3 className={`font-bold text-xs ${titleStyle}`}>Multi-Account Google Login</h3>
+              <p className="text-[10px] text-zinc-400">Switch instantly between saved Google profiles</p>
+            </div>
+
+            <div className="space-y-2.5">
+              {allUsers.map((acc) => {
+                const isActive = (acc.id === activeUserId) || (user?.email === acc.email);
+                return (
+                  <div
+                    key={acc.id}
+                    className={`group w-full p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                      isActive 
+                        ? 'bg-emerald-500/5 border-emerald-500/20 shadow-sm ring-1 ring-emerald-500/10' 
+                        : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100/70' : 'bg-zinc-950/20 border-zinc-850 hover:bg-zinc-900/30'
+                    }`}
+                  >
+                    <button
+                      onClick={() => switchGoogleUser(acc.email, acc.name, acc.avatarUrl)}
+                      className="flex-1 text-left flex items-center gap-3 cursor-pointer min-w-0"
+                    >
+                      <img src={acc.avatarUrl || PRESET_AVATARS[0]} alt={acc.name} className="h-7 w-7 rounded-lg object-cover shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{acc.name}</span>
+                          {isActive && <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-wide shrink-0">Active</span>}
+                        </div>
+                        <p className="text-[9px] text-zinc-400 truncate">{acc.email}</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (confirm(`Are you absolutely sure you want to delete ${acc.name}'s account and ALL associated financial data? This cannot be undone.`)) {
+                          await deleteUser(acc.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
+                      title="Delete account permanently"
+                    >
+                      <Trash2 size={12} className="stroke-[2.5]" />
+                    </button>
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={() => setShowGoogleDialog(true)}
+                className={`w-full py-2 px-3 border border-dashed rounded-xl flex items-center justify-center gap-2 text-[10px] font-bold cursor-pointer transition-all ${
+                  isLight ? 'border-zinc-300 text-zinc-600 hover:bg-zinc-50' : 'border-zinc-800 text-zinc-400 hover:bg-zinc-900/30'
+                }`}
+              >
+                <Plus size={11} />
+                <span>Link Another Google Account</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Dynamic Tab Panels */}
+        <div className="lg:col-span-2 space-y-6">
+          {activeTab === 'saas' && (
+            <>
+              {/* Panel 1: Account Info & Profile picture device upload */}
+          <div className={cardStyle}>
+            <div className={`flex items-center justify-between border-b pb-4 mb-5 ${
+              isLight ? 'border-zinc-100' : 'border-zinc-850/60'
+            }`}>
+              <div className="space-y-0.5">
+                <h3 className={`font-bold text-sm ${titleStyle}`}>Personal Profile Settings</h3>
+                <p className={`text-[10px] ${textMutedStyle}`}>Update your name, email, and upload a custom profile picture</p>
+              </div>
+              {saveSuccess && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/5 px-2.5 py-1 border border-emerald-500/10 rounded-full animate-fade-in">
+                  <CheckCircle2 size={11} /> Saved Successfully
+                </span>
+              )}
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-5">
+              
+              {/* Profile Avatar device upload */}
+              <div className="flex items-center gap-5 p-4 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20">
+                <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                  <img 
+                    src={avatar || PRESET_AVATARS[0]} 
+                    alt="User avatar" 
+                    className="h-14 w-14 rounded-xl object-cover ring-2 ring-emerald-500/20 dark:ring-zinc-800 group-hover:opacity-75 transition-all"
+                  />
+                  <div className="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                    <Upload size={14} className="text-white" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className={`text-xs font-bold block ${titleStyle}`}>Upload Custom Avatar</span>
+                  <p className="text-[9px] text-zinc-400">Select any PNG, JPG or SVG image directly from your local device.</p>
+                  
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleAvatarFileChange}
+                    className="hidden"
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border cursor-pointer transition-all ${
+                      isLight ? 'bg-white hover:bg-zinc-50 border-zinc-200' : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+                    }`}
+                  >
+                    Choose Photo
+                  </button>
+                </div>
+              </div>
+
+              {/* Name & Email inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Your Display Name</label>
+                  <input 
+                    type="text" 
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className={`${inputStyle} font-semibold`}
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Google Account Email</label>
+                  <input 
+                    type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* Currency Selector */}
+              <div>
+                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Default Currency</label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                  className={selectStyle}
+                >
+                  {Object.keys(CURRENCIES).map(code => (
+                    <option key={code} value={code}>{code} ({CURRENCIES[code].symbol}) - {CURRENCIES[code].name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Dynamic Theme Selection Grid */}
+              <div className="border-t border-zinc-800/10 dark:border-zinc-800/50 pt-5 mt-2">
+                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2.5 ${textMutedStyle}`}>Workspace Custom Theme Palette</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {THEME_PRESETS.map((preset) => {
+                    const isSelected = theme === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => setTheme(preset.id as any)}
+                        className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col gap-2 relative overflow-hidden ${
+                          isSelected 
+                            ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/10 shadow-sm' 
+                            : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-zinc-950 border-zinc-850 hover:bg-zinc-900/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className={`text-[11px] font-bold ${titleStyle}`}>{preset.name}</span>
+                          <div className="flex gap-1.5">
+                            <span className={`h-3 w-3 rounded-full ${preset.bg} border border-zinc-700/30 shadow-sm`}></span>
+                            <span className={`h-3 w-3 rounded-full ${preset.accent} shadow-sm`}></span>
+                          </div>
+                        </div>
+                        <span className="text-[9.5px] text-zinc-400 leading-relaxed">{preset.desc}</span>
+                        {isSelected && (
+                          <div className="absolute right-0 bottom-0 bg-emerald-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-tl-lg scale-90">✓</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className={`p-4 border rounded-2xl flex items-center justify-between ${
+                isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-950/20 border-zinc-850'
+              }`}>
+                <div className="flex flex-col">
+                  <span className={`text-xs font-bold ${titleStyle}`}>Interactive Alert Signals</span>
+                  <span className={`text-[10px] ${textMutedStyle}`}>Enable overspending notifications and goal progress triggers</span>
+                </div>
+                <input 
+                  type="checkbox"
+                  checked={notificationsEnabled}
+                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                  className="h-4.5 w-4.5 accent-zinc-900 dark:accent-zinc-100 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 ${
+                    isLight
+                      ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                      : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950'
+                  }`}
+                >
+                  <Save size={13} className="stroke-[2.5]" />
+                  <span>Save Configuration</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Panel 2: Administrator custom branding dashboard updates */}
+          <div className={cardStyle}>
+            <div className={`flex items-center justify-between border-b pb-4 mb-5 ${
+              isLight ? 'border-zinc-100' : 'border-zinc-850/60'
+            }`}>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <Building size={14} className="text-emerald-500" />
+                  <h3 className={`font-bold text-sm ${titleStyle}`}>SaaS Branding Controls (Admin Mode)</h3>
+                </div>
+                <p className={`text-[10px] ${textMutedStyle}`}>Change the App Name and App Logo. Instantly updates on every user device!</p>
+              </div>
+              {brandingSuccess && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/5 px-2.5 py-1 border border-emerald-500/10 rounded-full animate-fade-in">
+                  <CheckCircle2 size={11} /> Branding Synchronized
+                </span>
+              )}
+            </div>
+
+            <form onSubmit={handleSaveBranding} className="space-y-5">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Application Branded Name</label>
+                  <input 
+                    type="text" 
+                    value={localAppName}
+                    onChange={(e) => setLocalAppName(e.target.value)}
+                    placeholder="e.g. Spendly"
+                    className={`${inputStyle} font-semibold`}
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>SaaS Web App Logo URL / Input</label>
+                  <input 
+                    type="text" 
+                    value={localAppLogo}
+                    onChange={(e) => setLocalAppLogo(e.target.value)}
+                    placeholder="e.g. Image URL or Base64 String"
+                    className={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* Logo device uploader for administrators */}
+              <div className="p-4 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20 flex items-center gap-5">
+                <div className="h-10 w-10 rounded-lg bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shrink-0">
+                  {localAppLogo ? (
+                    <img src={localAppLogo} alt="Branded Logo Preview" className="h-8 w-8 rounded object-cover" />
+                  ) : (
+                    <Globe size={18} className="text-zinc-400" />
+                  )}
+                </div>
+                <div className="flex-1 space-y-1">
+                  <span className={`text-[11px] font-bold block ${titleStyle}`}>Upload Brand Logo Icon from device</span>
+                  <p className="text-[9px] text-zinc-400">Quickly upload an image asset from your device to replace the global SVG launcher icon.</p>
+                  <input 
+                    type="file" 
+                    ref={logoInputRef}
+                    accept="image/*"
+                    onChange={handleLogoFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border cursor-pointer transition-all ${
+                      isLight ? 'bg-white hover:bg-zinc-50 border-zinc-200' : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+                    }`}
+                  >
+                    Select Logo File
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white`}
+                >
+                  <RefreshCw size={12} className="animate-spin-slow" />
+                  <span>Update & Push Globally</span>
+                </button>
+              </div>
+            </form>
+          </div>
+          </>
+          )}
+
+          {/* Panel: Notifications Alerts tab content */}
+          {activeTab === 'notifications' && (
+            <div className={`${cardStyle} animate-fade-in`}>
+              <div className={`flex items-center justify-between border-b pb-4 mb-5 ${
+                isLight ? 'border-zinc-100' : 'border-zinc-850/60'
+              }`}>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Bell size={14} className="text-emerald-500" />
+                    <h3 className={`font-bold text-sm ${titleStyle}`}>Notification Alerts & Signals</h3>
+                  </div>
+                  <p className={`text-[10px] ${textMutedStyle}`}>Configure live signal alarms, overspending watchdogs, and status email digests.</p>
+                </div>
+                {notifSuccess && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/5 px-2.5 py-1 border border-emerald-500/10 rounded-full animate-fade-in">
+                    <CheckCircle2 size={11} /> Alert Preferences Saved
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-5">
+                <div className={`p-4 border rounded-xl flex items-center justify-between ${
+                  isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-950/20 border-zinc-850'
+                }`}>
+                  <div className="flex flex-col pr-4">
+                    <span className={`text-xs font-bold ${titleStyle}`}>Master Alert Signals</span>
+                    <span className={`text-[9.5px] ${textMutedStyle}`}>Master switcher to toggle all push and dashboard alert sounds and popups.</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={notificationsEnabled}
+                      onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+
+                <div className={`p-4 border rounded-xl flex items-center justify-between ${
+                  isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-950/20 border-zinc-850'
+                }`}>
+                  <div className="flex flex-col pr-4">
+                    <span className={`text-xs font-bold ${titleStyle}`}>Weekly & Monthly Email Digests</span>
+                    <span className={`text-[9.5px] ${textMutedStyle}`}>Receive a periodic breakdown summarizing your expenses and net savings direct to your email.</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={emailDigest}
+                      onChange={(e) => setEmailDigest(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+
+                <div className={`p-4 border rounded-xl flex items-center justify-between ${
+                  isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-950/20 border-zinc-850'
+                }`}>
+                  <div className="flex flex-col pr-4">
+                    <span className={`text-xs font-bold ${titleStyle}`}>In-App Sound Indicators</span>
+                    <span className={`text-[9.5px] ${textMutedStyle}`}>Play a subtle physical tactile click sound when transactions or budget adjustments succeed.</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={soundTriggers}
+                      onChange={(e) => setSoundTriggers(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-zinc-800/10 dark:border-zinc-800/40 pt-4 animate-fade-in">
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Budget Limit Trigger</label>
+                    <select
+                      value={budgetThreshold}
+                      onChange={(e) => setBudgetThreshold(e.target.value)}
+                      className={selectStyle}
+                    >
+                      <option value="50">Notify at 50% Limit Spent</option>
+                      <option value="80">Notify at 80% Limit Spent (Recommended)</option>
+                      <option value="90">Notify at 90% Limit Spent</option>
+                      <option value="100">Notify only on Overdraft (100%+)</option>
+                      <option value="0">Do not Notify</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-xl bg-zinc-50/20 dark:bg-zinc-950/20 border-zinc-200 dark:border-zinc-850">
+                    <div className="flex flex-col pr-2">
+                      <span className={`text-xs font-bold ${titleStyle}`}>Goal Milestone Alarms</span>
+                      <span className="text-[9px] text-zinc-400">Trigger on 50% and 100% savings goal milestones.</span>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      checked={goalMilestones}
+                      onChange={(e) => setGoalMilestones(e.target.checked)}
+                      className="h-4.5 w-4.5 cursor-pointer accent-zinc-900 dark:accent-zinc-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-zinc-800/10 dark:border-zinc-800/40">
+                  <button
+                    onClick={() => {
+                      setNotifSuccess(true);
+                      setTimeout(() => setNotifSuccess(false), 3000);
+                    }}
+                    className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 ${
+                      isLight
+                        ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                        : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950'
+                    }`}
+                  >
+                    <Save size={13} className="stroke-[2.5]" />
+                    <span>Save Alert Preferences</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Panel: Security & Keyrings tab content */}
+          {activeTab === 'security' && (
+            <div className={`${cardStyle} animate-fade-in`}>
+              <div className={`flex items-center justify-between border-b pb-4 mb-5 ${
+                isLight ? 'border-zinc-100' : 'border-zinc-850/60'
+              }`}>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Key size={14} className="text-emerald-500" />
+                    <h3 className={`font-bold text-sm ${titleStyle}`}>Security & Keyrings Hub</h3>
+                  </div>
+                  <p className={`text-[10px] ${textMutedStyle}`}>Manage session authentication, API access keys, cryptographic locks, and audits.</p>
+                </div>
+                {securitySuccess && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/5 px-2.5 py-1 border border-emerald-500/10 rounded-full animate-fade-in">
+                    <CheckCircle2 size={11} /> Cryptography Updated
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-5">
+                {/* Simulated API Keys section */}
+                <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <span className={`text-xs font-bold block ${titleStyle}`}>Spendly Developer API Key</span>
+                      <span className="text-[9.5px] text-zinc-400">Authenticate custom scripts, Zapier integrations, or webhooks securely.</span>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setApiKeyVisible(!apiKeyVisible)}
+                      className={`text-[10px] px-2 py-1 rounded border transition-all cursor-pointer ${
+                        isLight ? 'bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-600' : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      {apiKeyVisible ? 'HIDE KEY' : 'REVEAL'}
+                    </button>
+                  </div>
+
+                  <div className={`flex items-center gap-2 p-2.5 border rounded-lg font-mono text-[10px] ${
+                    isLight ? 'bg-zinc-100/50 border-zinc-200 text-zinc-800' : 'bg-zinc-950/80 border-zinc-850 text-zinc-300'
+                  }`}>
+                    <span className="flex-1 truncate select-all">{apiKeyVisible ? simulatedApiKey : '••••••••••••••••••••••••••••••••'}</span>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(simulatedApiKey);
+                        alert('Developer API Key copied to clipboard securely!');
+                      }}
+                      className="text-[9.5px] font-sans font-bold text-emerald-500 px-2 py-0.5 hover:underline"
+                    >
+                      COPY
+                    </button>
+                  </div>
+                </div>
+
+                {/* Session pin lock security */}
+                <div className={`p-4 border rounded-xl flex items-center justify-between ${
+                  isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-950/20 border-zinc-850'
+                }`}>
+                  <div className="flex flex-col pr-4">
+                    <span className={`text-xs font-bold ${titleStyle}`}>Cryptographic Device Pin Lock</span>
+                    <span className={`text-[9.5px] ${textMutedStyle}`}>Simulate a secure PIN request on your main browser screen every time Spendly boots up.</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={startupPin}
+                      onChange={(e) => setStartupPin(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+
+                {/* Active Session Log */}
+                <div className="space-y-2 border-t border-zinc-800/10 dark:border-zinc-800/40 pt-4">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${textMutedStyle}`}>Cryptographic Active Session Log</span>
+                  <div className="space-y-2">
+                    <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                      isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-900/10 border-zinc-850'
+                    }`}>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`font-semibold ${titleStyle}`}>Chrome on macOS (Apple M3 Pro)</span>
+                          <span className="bg-emerald-500/10 text-emerald-500 text-[8px] font-bold px-1.5 py-0.5 rounded-full">ACTIVE NOW</span>
+                        </div>
+                        <p className="text-[9.5px] text-zinc-400">Location: Chennai, India — IP: 157.44.182.203</p>
+                      </div>
+                      <span className="text-[9.5px] text-zinc-500 font-medium">Secured</span>
+                    </div>
+
+                    <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                      isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-900/10 border-zinc-850'
+                    }`}>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`font-semibold ${titleStyle}`}>Safari on iPhone 15 Pro</span>
+                          <span className="bg-zinc-500/10 text-zinc-400 text-[8px] font-bold px-1.5 py-0.5 rounded-full">2 HOURS AGO</span>
+                        </div>
+                        <p className="text-[9.5px] text-zinc-400">Location: Bangalore, India — IP: 103.204.14.9</p>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => alert('Terminated Safari iPhone session successfully')}
+                        className="text-[9.5px] text-red-500 hover:underline font-bold"
+                      >
+                        REVOKE
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-zinc-800/10 dark:border-zinc-800/40">
+                  <button
+                    onClick={() => {
+                      setSecuritySuccess(true);
+                      setTimeout(() => setSecuritySuccess(false), 3000);
+                    }}
+                    className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 ${
+                      isLight
+                        ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                        : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950'
+                    }`}
+                  >
+                    <Save size={13} className="stroke-[2.5]" />
+                    <span>Save Security Configuration</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+      </div>
+
+      {/* ==========================================
+          SIMULATED GOOGLE ACCOUNT SIGN IN MODAL
+         ========================================== */}
+      {showGoogleDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4">
+          <div className={`w-full max-w-sm rounded-2xl border shadow-2xl p-6 space-y-5 animate-scale-up ${
+            isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-zinc-950 border-zinc-800 text-zinc-100'
+          }`}>
+            <div className="text-center space-y-2">
+              <div className="h-10 w-10 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mx-auto border border-zinc-200 dark:border-zinc-800">
+                <Globe size={20} className="text-emerald-500" />
+              </div>
+              <h3 className="font-bold text-sm">Sign in with Google Account</h3>
+              <p className="text-[10px] text-zinc-400">Add an isolated financial profile to this Spendly session</p>
+            </div>
+
+            <form onSubmit={handleGoogleSwitchSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider">Google Email Address</label>
+                <input 
+                  type="email"
+                  required
+                  value={googleEmail}
+                  onChange={(e) => setGoogleEmail(e.target.value)}
+                  placeholder="e.g. gauthamkk30@gmail.com"
+                  className={inputStyle}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider">Your Full Name (Optional)</label>
+                <input 
+                  type="text"
+                  value={googleName}
+                  onChange={(e) => setGoogleName(e.target.value)}
+                  placeholder="e.g. Gautham K"
+                  className={inputStyle}
+                />
+              </div>
+
+              {/* Preset avatar selector */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Choose Avatar Preset</label>
+                <div className="flex items-center gap-3">
+                  {PRESET_AVATARS.map((url) => (
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => setGoogleAvatar(url)}
+                      className={`h-9 w-9 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                        googleAvatar === url ? 'border-emerald-500 scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={url} alt="Preset profile picture" className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGoogleDialog(false)}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl border cursor-pointer ${
+                    isLight ? 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200' : 'bg-zinc-900 hover:bg-zinc-850 border-zinc-800'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 text-xs font-bold rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:opacity-90 cursor-pointer"
+                >
+                  Authorize Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SettingsView;

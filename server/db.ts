@@ -1,0 +1,605 @@
+import fs from 'fs';
+import path from 'path';
+import { 
+  DEFAULT_CATEGORIES, 
+  INITIAL_USER, 
+  INITIAL_WALLETS, 
+  INITIAL_TRANSACTIONS, 
+  INITIAL_BUDGETS, 
+  INITIAL_GOALS, 
+  INITIAL_NOTIFICATIONS 
+} from '../src/data/defaultData';
+import { 
+  Category, 
+  Wallet, 
+  Transaction, 
+  Budget, 
+  Goal, 
+  Notification, 
+  UserProfile 
+} from '../src/types';
+
+const DB_PATH = path.join(process.cwd(), 'db.json');
+
+interface DatabaseSchema {
+  user: UserProfile;
+  users?: UserProfile[];
+  wallets: Wallet[];
+  categories: Category[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  goals: Goal[];
+  notifications: Notification[];
+  appConfig?: {
+    appName: string;
+    appLogo: string;
+  };
+}
+
+class Database {
+  private data: DatabaseSchema;
+
+  constructor() {
+    this.data = this.load();
+  }
+
+  private load(): DatabaseSchema {
+    try {
+      if (fs.existsSync(DB_PATH)) {
+        const fileContent = fs.readFileSync(DB_PATH, 'utf-8');
+        const parsed = JSON.parse(fileContent);
+        if (!parsed.users) {
+          parsed.users = [parsed.user || INITIAL_USER];
+        }
+        if (!parsed.appConfig) {
+          parsed.appConfig = { appName: 'Spendly', appLogo: '' };
+        }
+        return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to load local DB file, reverting to default data', e);
+    }
+
+    const defaultDB: DatabaseSchema = {
+      user: INITIAL_USER,
+      users: [INITIAL_USER],
+      wallets: INITIAL_WALLETS,
+      categories: DEFAULT_CATEGORIES,
+      transactions: INITIAL_TRANSACTIONS,
+      budgets: INITIAL_BUDGETS,
+      goals: INITIAL_GOALS,
+      notifications: INITIAL_NOTIFICATIONS,
+      appConfig: {
+        appName: 'Spendly',
+        appLogo: ''
+      }
+    };
+
+    this.saveData(defaultDB);
+    return defaultDB;
+  }
+
+  private saveData(data: DatabaseSchema) {
+    try {
+      fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Failed to write to local DB file', e);
+    }
+  }
+
+  public get(): DatabaseSchema {
+    return this.data;
+  }
+
+  public save() {
+    this.saveData(this.data);
+  }
+
+  // App Branding config Actions
+  public getAppConfig() {
+    if (!this.data.appConfig) {
+      this.data.appConfig = { appName: 'Spendly', appLogo: '' };
+    }
+    return this.data.appConfig;
+  }
+
+  public updateAppConfig(update: { appName: string; appLogo: string }) {
+    this.data.appConfig = { ...this.getAppConfig(), ...update };
+    this.save();
+    return this.data.appConfig;
+  }
+
+  // User Actions
+  public getUsers(): UserProfile[] {
+    if (!this.data.users) {
+      this.data.users = [this.data.user];
+    }
+    return this.data.users;
+  }
+
+  public deleteUser(userId: string): boolean {
+    if (!this.data.users) {
+      this.data.users = [this.data.user];
+    }
+    
+    const originalLength = this.data.users.length;
+    this.data.users = this.data.users.filter(u => u.id !== userId);
+    
+    // Cleanup other tables/collections for this user to avoid orphan records
+    this.data.wallets = this.data.wallets.filter(w => (w as any).userId !== userId);
+    this.data.transactions = this.data.transactions.filter(t => (t as any).userId !== userId);
+    this.data.budgets = this.data.budgets.filter(b => (b as any).userId !== userId);
+    this.data.goals = this.data.goals.filter(g => (g as any).userId !== userId);
+    this.data.notifications = this.data.notifications.filter(n => (n as any).userId !== userId);
+
+    // If we deleted the main fallback user, assign a remaining one or re-seed default
+    if (this.data.user.id === userId) {
+      if (this.data.users.length > 0) {
+        this.data.user = this.data.users[0];
+      } else {
+        // Re-seed default if somehow everything gets wiped
+        this.data.user = INITIAL_USER;
+        this.data.users = [INITIAL_USER];
+      }
+    }
+    
+    this.save();
+    return this.data.users.length < originalLength;
+  }
+
+  public getUser(userId: string = 'usr-101'): UserProfile {
+    if (!this.data.users) {
+      this.data.users = [this.data.user];
+    }
+    const found = this.data.users.find(u => u.id === userId || u.email.toLowerCase() === userId.toLowerCase());
+    return found || this.data.user;
+  }
+
+  public updateUser(userId: string = 'usr-101', update: Partial<UserProfile>): UserProfile {
+    if (!this.data.users) {
+      this.data.users = [this.data.user];
+    }
+    const idx = this.data.users.findIndex(u => u.id === userId || u.email.toLowerCase() === userId.toLowerCase());
+    if (idx !== -1) {
+      this.data.users[idx] = { ...this.data.users[idx], ...update };
+      if (this.data.users[idx].id === this.data.user.id) {
+        this.data.user = this.data.users[idx];
+      }
+    } else {
+      this.data.user = { ...this.data.user, ...update };
+    }
+    this.save();
+    return idx !== -1 ? this.data.users[idx] : this.data.user;
+  }
+
+  public getOrCreateUserByEmail(email: string, name?: string, avatarUrl?: string): UserProfile {
+    if (!this.data.users) {
+      this.data.users = [this.data.user];
+    }
+    const existing = this.data.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existing) {
+      return existing;
+    }
+
+    const newUserId = `usr-${Date.now()}`;
+    const newUser: UserProfile = {
+      id: newUserId,
+      name: name || email.split('@')[0],
+      email: email,
+      avatarUrl: avatarUrl || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100`,
+      defaultCurrency: 'USD',
+      language: 'en',
+      theme: 'dark',
+      notificationsEnabled: true,
+      emailVerified: true
+    };
+    
+    this.data.users.push(newUser);
+
+    // Seed realistic onboarding data for the new account
+    const walletMapping: Record<string, string> = {};
+    INITIAL_WALLETS.forEach(w => {
+      const newWId = `w-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      walletMapping[w.id] = newWId;
+      this.data.wallets.push({
+        ...w,
+        id: newWId,
+        userId: newUserId as any
+      });
+    });
+
+    INITIAL_TRANSACTIONS.forEach(t => {
+      const newTId = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      this.data.transactions.push({
+        ...t,
+        id: newTId,
+        walletId: walletMapping[t.walletId] || t.walletId,
+        userId: newUserId as any
+      });
+    });
+
+    INITIAL_BUDGETS.forEach(b => {
+      const newBId = `b-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      this.data.budgets.push({
+        ...b,
+        id: newBId,
+        userId: newUserId as any
+      });
+    });
+
+    INITIAL_GOALS.forEach(g => {
+      const newGId = `g-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      this.data.goals.push({
+        ...g,
+        id: newGId,
+        userId: newUserId as any
+      });
+    });
+
+    this.data.notifications.unshift({
+      id: `nt-${Date.now()}`,
+      title: 'Welcome to Spendly! 🎉',
+      message: 'Your Google Account multi-profile has been seeded successfully.',
+      type: 'success',
+      timestamp: new Date().toISOString(),
+      read: false,
+      userId: newUserId as any
+    });
+
+    this.save();
+    return newUser;
+  }
+
+  // Wallets Actions
+  public getWallets(userId: string = 'usr-101'): Wallet[] {
+    return this.data.wallets.filter(w => (w as any).userId === userId || (!(w as any).userId && userId === 'usr-101'));
+  }
+
+  public addWallet(userId: string = 'usr-101', wallet: Wallet): Wallet {
+    (wallet as any).userId = userId;
+    this.data.wallets.push(wallet);
+    this.save();
+    return wallet;
+  }
+
+  public updateWallet(id: string, update: Partial<Wallet>): Wallet | null {
+    const idx = this.data.wallets.findIndex(w => w.id === id);
+    if (idx === -1) return null;
+    this.data.wallets[idx] = { ...this.data.wallets[idx], ...update };
+    this.save();
+    return this.data.wallets[idx];
+  }
+
+  public deleteWallet(id: string): boolean {
+    const originalLength = this.data.wallets.length;
+    this.data.wallets = this.data.wallets.filter(w => w.id !== id);
+    this.data.transactions = this.data.transactions.filter(t => t.walletId !== id);
+    this.save();
+    return this.data.wallets.length < originalLength;
+  }
+
+  // Categories Actions
+  public getCategories(): Category[] {
+    return this.data.categories;
+  }
+
+  public addCategory(category: Category): Category {
+    this.data.categories.push(category);
+    this.save();
+    return category;
+  }
+
+  public updateCategory(id: string, update: Partial<Category>): Category | null {
+    const idx = this.data.categories.findIndex(c => c.id === id);
+    if (idx === -1) return null;
+    this.data.categories[idx] = { ...this.data.categories[idx], ...update };
+    this.save();
+    return this.data.categories[idx];
+  }
+
+  public deleteCategory(id: string): boolean {
+    const originalLength = this.data.categories.length;
+    this.data.categories = this.data.categories.filter(c => c.id !== id);
+    this.save();
+    return this.data.categories.length < originalLength;
+  }
+
+  // Transactions Actions
+  public getTransactions(userId: string = 'usr-101'): Transaction[] {
+    return this.data.transactions.filter(t => (t as any).userId === userId || (!(t as any).userId && userId === 'usr-101'));
+  }
+
+  public addTransaction(userId: string = 'usr-101', tx: Transaction): Transaction {
+    (tx as any).userId = userId;
+    this.data.transactions.unshift(tx);
+
+    const wallet = this.data.wallets.find(w => w.id === tx.walletId);
+    if (wallet) {
+      if (tx.type === 'income') {
+        wallet.balance += tx.amount;
+      } else {
+        wallet.balance -= tx.amount;
+      }
+    }
+
+    if (tx.type === 'expense') {
+      const budget = this.data.budgets.find(b => 
+        (b.categoryId === tx.categoryId || b.categoryId === 'all') &&
+        ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101'))
+      );
+      if (budget) {
+        budget.spent += tx.amount;
+        if (budget.spent > budget.amount && budget.spent - tx.amount <= budget.amount) {
+          this.addNotification(userId, {
+            id: `nt-budget-alert-${Date.now()}`,
+            title: 'Budget Overspent Alert',
+            message: `You have exceeded your monthly budget for this category!`,
+            type: 'alert',
+            timestamp: new Date().toISOString(),
+            read: false
+          });
+        } else if (budget.spent >= budget.amount * 0.8 && budget.spent - tx.amount < budget.amount * 0.8) {
+          this.addNotification(userId, {
+            id: `nt-budget-warn-${Date.now()}`,
+            title: 'Budget Warning',
+            message: `You have spent over 80% of your monthly budget for this category.`,
+            type: 'warning',
+            timestamp: new Date().toISOString(),
+            read: false
+          });
+        }
+      }
+    }
+
+    this.save();
+    return tx;
+  }
+
+  public updateTransaction(id: string, update: Partial<Transaction>): Transaction | null {
+    const idx = this.data.transactions.findIndex(t => t.id === id);
+    if (idx === -1) return null;
+    
+    const oldTx = this.data.transactions[idx];
+    
+    const oldWallet = this.data.wallets.find(w => w.id === oldTx.walletId);
+    if (oldWallet) {
+      if (oldTx.type === 'income') {
+        oldWallet.balance -= oldTx.amount;
+      } else {
+        oldWallet.balance += oldTx.amount;
+      }
+    }
+
+    if (oldTx.type === 'expense') {
+      const oldBudget = this.data.budgets.find(b => 
+        b.categoryId === oldTx.categoryId || b.categoryId === 'all'
+      );
+      if (oldBudget) {
+        oldBudget.spent = Math.max(0, oldBudget.spent - oldTx.amount);
+      }
+    }
+
+    const updatedTx = { ...oldTx, ...update };
+    this.data.transactions[idx] = updatedTx;
+
+    const newWallet = this.data.wallets.find(w => w.id === updatedTx.walletId);
+    if (newWallet) {
+      if (updatedTx.type === 'income') {
+        newWallet.balance += updatedTx.amount;
+      } else {
+        newWallet.balance -= updatedTx.amount;
+      }
+    }
+
+    if (updatedTx.type === 'expense') {
+      const newBudget = this.data.budgets.find(b => 
+        b.categoryId === updatedTx.categoryId || b.categoryId === 'all'
+      );
+      if (newBudget) {
+        newBudget.spent += updatedTx.amount;
+      }
+    }
+
+    this.save();
+    return updatedTx;
+  }
+
+  public deleteTransaction(id: string): boolean {
+    const idx = this.data.transactions.findIndex(t => t.id === id);
+    if (idx === -1) return false;
+
+    const tx = this.data.transactions[idx];
+
+    const wallet = this.data.wallets.find(w => w.id === tx.walletId);
+    if (wallet) {
+      if (tx.type === 'income') {
+        wallet.balance -= tx.amount;
+      } else {
+        wallet.balance += tx.amount;
+      }
+    }
+
+    if (tx.type === 'expense') {
+      const budget = this.data.budgets.find(b => b.categoryId === tx.categoryId || b.categoryId === 'all');
+      if (budget) {
+        budget.spent = Math.max(0, budget.spent - tx.amount);
+      }
+    }
+
+    this.data.transactions.splice(idx, 1);
+    this.save();
+    return true;
+  }
+
+  // Budgets Actions
+  public getBudgets(userId: string = 'usr-101'): Budget[] {
+    return this.data.budgets.filter(b => (b as any).userId === userId || (!(b as any).userId && userId === 'usr-101'));
+  }
+
+  public addBudget(userId: string = 'usr-101', budget: Budget): Budget {
+    (budget as any).userId = userId;
+    const idx = this.data.budgets.findIndex(b => 
+      b.categoryId === budget.categoryId && 
+      b.month === budget.month && 
+      b.year === budget.year &&
+      ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101'))
+    );
+    if (idx !== -1) {
+      this.data.budgets[idx] = { ...this.data.budgets[idx], amount: budget.amount };
+      this.save();
+      return this.data.budgets[idx];
+    }
+    
+    this.data.budgets.push(budget);
+    this.save();
+    return budget;
+  }
+
+  public deleteBudget(id: string): boolean {
+    const originalLength = this.data.budgets.length;
+    this.data.budgets = this.data.budgets.filter(b => b.id !== id);
+    this.save();
+    return this.data.budgets.length < originalLength;
+  }
+
+  // Goals Actions
+  public getGoals(userId: string = 'usr-101'): Goal[] {
+    return this.data.goals.filter(g => (g as any).userId === userId || (!(g as any).userId && userId === 'usr-101'));
+  }
+
+  public addGoal(userId: string = 'usr-101', goal: Goal): Goal {
+    (goal as any).userId = userId;
+    this.data.goals.push(goal);
+    this.save();
+    return goal;
+  }
+
+  public updateGoal(userId: string = 'usr-101', id: string, update: Partial<Goal>): Goal | null {
+    const idx = this.data.goals.findIndex(g => g.id === id);
+    if (idx === -1) return null;
+    
+    const oldGoal = this.data.goals[idx];
+    const updatedGoal = { ...oldGoal, ...update };
+    
+    if (updatedGoal.currentAmount >= updatedGoal.targetAmount && oldGoal.currentAmount < oldGoal.targetAmount) {
+      this.addNotification(userId, {
+        id: `nt-goal-${Date.now()}`,
+        title: 'Goal Achieved! 🎉',
+        message: `Congratulations! You have fully funded your goal: "${updatedGoal.name}"!`,
+        type: 'success',
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+    }
+
+    this.data.goals[idx] = updatedGoal;
+    this.save();
+    return updatedGoal;
+  }
+
+  public deleteGoal(id: string): boolean {
+    const originalLength = this.data.goals.length;
+    this.data.goals = this.data.goals.filter(g => g.id !== id);
+    this.save();
+    return this.data.goals.length < originalLength;
+  }
+
+  // Notifications Actions
+  public getNotifications(userId: string = 'usr-101'): Notification[] {
+    return this.data.notifications.filter(n => (n as any).userId === userId || (!(n as any).userId && userId === 'usr-101'));
+  }
+
+  public addNotification(userId: string = 'usr-101', notification: Notification): Notification {
+    (notification as any).userId = userId;
+    this.data.notifications.unshift(notification);
+    this.save();
+    return notification;
+  }
+
+  public markNotificationRead(id: string): boolean {
+    const idx = this.data.notifications.findIndex(n => n.id === id);
+    if (idx === -1) return false;
+    this.data.notifications[idx].read = true;
+    this.save();
+    return true;
+  }
+
+  public clearAllNotifications(userId: string = 'usr-101'): void {
+    this.data.notifications = this.data.notifications.filter(n => 
+      (n as any).userId !== userId && ((n as any).userId || userId !== 'usr-101')
+    );
+    this.save();
+  }
+
+  public restoreUserData(userId: string, payload: {
+    user: UserProfile;
+    wallets: Wallet[];
+    categories: Category[];
+    transactions: Transaction[];
+    budgets: Budget[];
+    goals: Goal[];
+    notifications: Notification[];
+  }) {
+    if (!this.data.users) {
+      this.data.users = [this.data.user];
+    }
+    
+    // 1. Remove existing user profile if somehow present (or overwrite)
+    this.data.users = this.data.users.filter(u => u.id !== userId);
+    this.data.users.push(payload.user);
+
+    // If it's the active fallback user, set it
+    if (this.data.user.id === userId) {
+      this.data.user = payload.user;
+    }
+
+    // 2. Overwrite wallets for this user
+    this.data.wallets = this.data.wallets.filter(w => (w as any).userId !== userId);
+    payload.wallets.forEach(w => {
+      (w as any).userId = userId;
+      this.data.wallets.push(w);
+    });
+
+    // 3. Overwrite categories (some can be custom categories, let's just make sure we don't duplicate custom categories in this.data.categories)
+    payload.categories.forEach(c => {
+      if (c.isCustom) {
+        if (!this.data.categories.some(existingCat => existingCat.id === c.id)) {
+          this.data.categories.push(c);
+        }
+      }
+    });
+
+    // 4. Overwrite transactions for this user
+    this.data.transactions = this.data.transactions.filter(t => (t as any).userId !== userId);
+    payload.transactions.forEach(t => {
+      (t as any).userId = userId;
+      this.data.transactions.push(t);
+    });
+
+    // 5. Overwrite budgets for this user
+    this.data.budgets = this.data.budgets.filter(b => (b as any).userId !== userId);
+    payload.budgets.forEach(b => {
+      (b as any).userId = userId;
+      this.data.budgets.push(b);
+    });
+
+    // 6. Overwrite goals for this user
+    this.data.goals = this.data.goals.filter(g => (g as any).userId !== userId);
+    payload.goals.forEach(g => {
+      (g as any).userId = userId;
+      this.data.goals.push(g);
+    });
+
+    // 7. Overwrite notifications for this user
+    this.data.notifications = this.data.notifications.filter(n => (n as any).userId !== userId);
+    payload.notifications.forEach(n => {
+      (n as any).userId = userId;
+      this.data.notifications.push(n);
+    });
+
+    this.save();
+  }
+}
+
+export const db = new Database();
+export default db;
