@@ -52,6 +52,19 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onOpenAddTx 
     }
   };
 
+  const getActionBgClass = () => {
+    switch (theme) {
+      case 'midnight': return 'bg-blue-500 text-white shadow-lg shadow-blue-500/25';
+      case 'forest': return 'bg-teal-500 text-white shadow-lg shadow-teal-500/25';
+      case 'sunset': return 'bg-rose-500 text-white shadow-lg shadow-rose-500/25';
+      case 'amethyst': return 'bg-purple-500 text-white shadow-lg shadow-purple-500/25';
+      case 'light': return 'bg-zinc-900 text-white shadow-lg shadow-zinc-950/15';
+      case 'dark':
+      default:
+        return 'bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/25';
+    }
+  };
+
   return (
     <nav className={`md:hidden fixed bottom-0 left-0 right-0 z-30 px-4 py-2 border-t backdrop-blur-xl transition-all ${getBgClass()}`}>
       <div className="max-w-md mx-auto flex items-center justify-between">
@@ -64,7 +77,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onOpenAddTx 
               <button
                 key={item.id}
                 onClick={onOpenAddTx}
-                className="relative -translate-y-4 flex items-center justify-center h-12 w-12 rounded-full bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/25 active:scale-95 transition-transform cursor-pointer"
+                className={`relative -translate-y-4 flex items-center justify-center h-12 w-12 rounded-full active:scale-95 transition-transform cursor-pointer ${getActionBgClass()}`}
                 title="Log transaction entry"
               >
                 <Icon size={20} className="stroke-[3]" />

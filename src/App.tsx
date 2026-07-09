@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -11,8 +11,10 @@ import SettingsView from './components/SettingsView';
 import AddTxModal from './components/AddTxModal';
 import OCRModal from './components/OCRModal';
 import BottomNavigation from './components/BottomNavigation';
-import { Loader2, AlertCircle, Trash2, Plus, ArrowRight, Mail, User, ShieldAlert } from 'lucide-react';
+import { Loader2, AlertCircle, Trash2, Plus, ArrowRight, Mail, User, ShieldAlert, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { CommandPalette } from './components/CommandPalette';
+import { WelcomeTour } from './components/WelcomeTour';
 
 const appAnimationVariants = {
   loading: {
@@ -32,28 +34,7 @@ const appAnimationVariants = {
 };
 
 function LoginPage() {
-  const { allUsers, switchGoogleUser, deleteUser, appName, appLogo, isLoading } = useApp();
-  const [showNewUserForm, setShowNewUserForm] = useState(false);
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [avatar, setAvatar] = useState('');
-
-  const PRESET_AVATARS = [
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100',
-    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=100',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100'
-  ];
-
-  const handleCreateAndLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    const selectedAvatar = avatar || PRESET_AVATARS[Math.floor(Math.random() * PRESET_AVATARS.length)];
-    await switchGoogleUser(email.trim(), name.trim() || undefined, selectedAvatar);
-    setEmail('');
-    setName('');
-    setAvatar('');
-  };
+  const { appName, appLogo, login, isLoading } = useApp();
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 flex items-center justify-center p-6 relative overflow-hidden">
@@ -84,132 +65,38 @@ function LoginPage() {
               {appName || 'Spendly'}
             </h1>
             <p className="text-xs text-zinc-500 tracking-wider uppercase font-bold flex items-center justify-center gap-1.5">
-              <span>Google Account Gateway</span>
+              <span>Secure Personal Ledger</span>
             </p>
           </div>
         </div>
 
-        {/* Saved Profiles Section */}
-        <div className="bg-zinc-900/40 border border-zinc-850/80 p-6 rounded-3xl backdrop-blur-xl shadow-2xl space-y-5">
-          <div className="space-y-1">
-            <h2 className="text-sm font-bold text-zinc-200">Select Google Account</h2>
-            <p className="text-[10px] text-zinc-500">Sign back in with saved profiles on this device</p>
+        {/* Clean, Premium Sign-in Block */}
+        <div className="bg-zinc-900/40 border border-zinc-850/80 p-8 rounded-3xl backdrop-blur-xl shadow-2xl space-y-6 text-center">
+          <div className="space-y-2">
+            <h2 className="text-lg font-bold text-zinc-100">Welcome to Spendly</h2>
+            <p className="text-xs text-zinc-400 leading-relaxed max-w-xs mx-auto">
+              Please sign in with your Google account to access your personal workspace, transaction ledgers, and intelligent insights.
+            </p>
           </div>
 
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-            {allUsers.map((acc) => (
-              <div 
-                key={acc.id}
-                className="group flex items-center justify-between p-3 rounded-2xl bg-zinc-950/20 border border-zinc-850 hover:border-zinc-700/60 transition-all hover:bg-zinc-900/30"
-              >
-                <button
-                  onClick={() => switchGoogleUser(acc.email, acc.name, acc.avatarUrl)}
-                  className="flex-1 text-left flex items-center gap-3 cursor-pointer min-w-0"
-                >
-                  <img src={acc.avatarUrl || PRESET_AVATARS[0]} alt={acc.name} className="h-9 w-9 rounded-xl object-cover shrink-0 ring-1 ring-zinc-800" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-bold text-zinc-200 block truncate">{acc.name}</span>
-                    <span className="text-[10px] text-zinc-500 truncate block">{acc.email}</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (confirm(`Delete ${acc.name}'s account and ALL associated ledger records permanently? This cannot be undone.`)) {
-                      await deleteUser(acc.id);
-                    }
-                  }}
-                  className="p-1.5 rounded-xl text-zinc-500 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer shrink-0"
-                  title="Remove account from device"
-                >
-                  <Trash2 size={13} className="stroke-[2.5]" />
-                </button>
-              </div>
-            ))}
-
-            {allUsers.length === 0 && (
-              <div className="text-center py-6 text-xs text-zinc-500 italic">
-                No active profiles found. Please sign in below.
-              </div>
-            )}
-          </div>
-
-          {/* Collapsible New User Form Trigger */}
-          {!showNewUserForm ? (
-            <button
-              onClick={() => setShowNewUserForm(true)}
-              className="w-full py-3 px-4 rounded-xl border border-dashed border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <Plus size={13} />
-              <span>Sign In with another Google account</span>
-            </button>
-          ) : (
-            <form onSubmit={handleCreateAndLogin} className="space-y-4 pt-3 border-t border-zinc-800/50 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-300">Google Credentials</span>
-                <button 
-                  type="button" 
-                  onClick={() => setShowNewUserForm(false)}
-                  className="text-[10px] text-zinc-500 hover:text-zinc-300 font-semibold"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-3 h-4.5 w-4.5 text-zinc-600" />
-                  <input
-                    type="email"
-                    placeholder="google.email@gmail.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-700 placeholder-zinc-600"
-                  />
-                </div>
-
-                <div className="relative">
-                  <User className="absolute left-3.5 top-3.5 h-4 w-4 text-zinc-600" />
-                  <input
-                    type="text"
-                    placeholder="Gautham K (Optional Name)"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-700 placeholder-zinc-600"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Choose Google Avatar</label>
-                  <div className="flex items-center gap-3">
-                    {PRESET_AVATARS.map((av) => (
-                      <button
-                        key={av}
-                        type="button"
-                        onClick={() => setAvatar(av)}
-                        className={`h-9 w-9 rounded-xl overflow-hidden cursor-pointer transition-all shrink-0 relative ${
-                          avatar === av ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-zinc-950' : 'opacity-65 hover:opacity-100'
-                        }`}
-                      >
-                        <img src={av} alt="Preset avatar" className="h-full w-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 text-xs font-extrabold rounded-xl shadow-lg shadow-emerald-500/5 transition-all cursor-pointer flex items-center justify-center gap-2 mt-4"
-              >
-                <span>Authorize & Switch Account</span>
-                <ArrowRight size={13} className="stroke-[2.5]" />
-              </button>
-            </form>
-          )}
+          <button
+            onClick={() => login()}
+            disabled={isLoading}
+            className="w-full py-3.5 px-5 bg-white hover:bg-zinc-100 text-zinc-900 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-3 shadow-lg shadow-white/5 disabled:opacity-50"
+          >
+            {/* Google Vector Icon */}
+            <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21.35,11.1H12v2.7h5.38c-0.24,1.28 -0.96,2.37 -2.04,3.1v2.57h3.3c1.93,-1.78 3.04,-4.4 3.04,-7.49c0,-0.61 -0.05,-1.2 -0.15,-1.78Z" fill="#4285F4" />
+              <path d="M12,20.62c2.43,0 4.47,-0.8 5.96,-2.18l-2.92,-2.27c-0.8,0.54 -1.84,0.87 -3.04,0.87c-2.34,0 -4.33,-1.58 -5.04,-3.7H3.92v2.21c1.5,2.98 4.6,5.07 8.08,5.07Z" fill="#34A853" />
+              <path d="M6.96,13.34c-0.18,-0.54 -0.28,-1.11 -0.28,-1.7c0,-0.59 0.1,-1.16 0.28,-1.7V7.73H3.92C3.31,8.95 3,10.32 3,11.64c0,1.32 0.31,2.69 0.92,3.91l3.04,-2.21Z" fill="#FBBC05" />
+              <path d="M12,6.76c1.32,0 2.5,0.45 3.44,1.35l2.58,-2.58C16.46,4.09 14.42,3.38 12,3.38c-3.48,0 -6.58,2.09 -8.08,5.07l3.04,2.21c0.71,-2.12 2.7,-3.7 5.04,-3.7Z" fill="#EA4335" />
+            </svg>
+            <span>Sign In with Google</span>
+          </button>
+          
+          <p className="text-[10px] text-zinc-500 max-w-xs mx-auto">
+            Your data is safely isolated. Only one authenticated user session may exist at a time.
+          </p>
         </div>
       </motion.div>
     </div>
@@ -217,14 +104,97 @@ function LoginPage() {
 }
 
 function DashboardLayout() {
-  const { activeView, isLoading, error, theme, activeUserId } = useApp();
+  const { activeView, setActiveView, isLoading, error, theme, user } = useApp();
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [addTxOpen, setAddTxOpen] = useState(false);
   const [ocrOpen, setOcrOpen] = useState(false);
   
+  // Custom Command Palette & Onboarding States
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  
   // Hold active transaction being edited
   const [editingTx, setEditingTx] = useState<any | null>(null);
+
+  // Trigger tour automatically for new users after 1.2 seconds
+  useEffect(() => {
+    if (user) {
+      const tourCompleted = localStorage.getItem('spendly_tour_completed');
+      if (!tourCompleted) {
+        const timer = setTimeout(() => {
+          setTourOpen(true);
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user]);
+
+  // Handle global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.tagName === 'SELECT' ||
+        activeEl.getAttribute('contenteditable') === 'true'
+      )) {
+        if (e.key === 'Escape') {
+          (activeEl as HTMLElement).blur();
+        }
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      // Toggle command palette: Cmd/Ctrl + K or /
+      if ((e.metaKey || e.ctrlKey) && key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(prev => !prev);
+        return;
+      }
+
+      if (e.key === '/') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+        return;
+      }
+
+      if (e.key === '?') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+        return;
+      }
+
+      // Add transaction modal: N or T
+      if (key === 'n' || key === 't') {
+        e.preventDefault();
+        setAddTxOpen(true);
+        return;
+      }
+
+      // Receipt OCR scanner: R or S
+      if (key === 'r' || key === 's') {
+        e.preventDefault();
+        setOcrOpen(true);
+        return;
+      }
+
+      // Navigation tabs: numbers 1-6
+      if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
+        e.preventDefault();
+        const views = ['dashboard', 'transactions', 'budgets', 'goals', 'categories', 'settings'];
+        const idx = parseInt(e.key, 10) - 1;
+        if (views[idx]) {
+          setActiveView(views[idx]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, [user, setActiveView]);
 
   const handleEditTx = (tx: any) => {
     setEditingTx(tx);
@@ -249,7 +219,7 @@ function DashboardLayout() {
     }
   };
 
-  if (!activeUserId) {
+  if (!user) {
     return (
       <>
         <LoginPage />
@@ -364,6 +334,35 @@ function DashboardLayout() {
 
         {/* Floating Glassmorphic Mobile Bottom Navigation */}
         <BottomNavigation onOpenAddTx={() => setAddTxOpen(true)} />
+
+        {/* Mobile Command Palette FAB Launcher */}
+        <div className="md:hidden fixed bottom-20 right-4 z-30">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setCommandPaletteOpen(true)}
+            className="h-11 w-11 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-500/20 flex items-center justify-center text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+            aria-label="Open Command Search"
+          >
+            <div className="w-full h-full rounded-full bg-zinc-950 flex items-center justify-center text-emerald-400 hover:text-emerald-300">
+              <Sparkles size={16} className="stroke-[2.5]" />
+            </div>
+          </motion.button>
+        </div>
+
+        {/* Global Command Palette */}
+        <CommandPalette 
+          isOpen={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+          onOpenAddTx={() => setAddTxOpen(true)}
+          onOpenOCR={() => setOcrOpen(true)}
+          onStartTour={() => setTourOpen(true)}
+        />
+
+        {/* Interactive Welcome Tour Onboarding */}
+        <WelcomeTour 
+          isOpen={tourOpen}
+          onClose={() => setTourOpen(false)}
+        />
 
       </motion.div>
 

@@ -3,6 +3,31 @@ import { useApp } from '../context/AppContext';
 import { Target, Plus, Trash2, Calendar, Coins, Check, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatIndianNumber } from '../utils/format';
+import { EmptyState } from './EmptyState';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.04,
+      delayChildren: 0.02
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 140,
+      damping: 18
+    }
+  }
+};
 
 export const GoalsView: React.FC = () => {
   const { goals, addGoal, deleteGoal, updateGoal, theme } = useApp();
@@ -75,12 +100,17 @@ export const GoalsView: React.FC = () => {
   const textMutedStyle = isLight ? 'text-zinc-500' : 'text-zinc-400';
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial="hidden"
+      animate="show"
+      variants={containerVariants}
+      className="space-y-6"
+    >
       {/* View Header */}
-      <div className="space-y-1">
+      <motion.div variants={itemVariants} className="space-y-1">
         <h1 className={`text-2xl font-bold tracking-tight ${titleStyle}`}>Savings Targets</h1>
         <p className={`text-xs ${textMutedStyle}`}>Establish visual milestones, track deposits, and fulfill capital projects</p>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -175,11 +205,11 @@ export const GoalsView: React.FC = () => {
           <div className={`text-xs font-semibold uppercase tracking-wider ${textMutedStyle}`}>Active Milestones</div>
 
           {goals.length === 0 ? (
-            <div className={`p-12 border rounded-2xl text-center text-xs ${
-              isLight ? 'bg-white border-zinc-200 text-zinc-400' : 'bg-zinc-900/10 border-zinc-850 text-zinc-500'
-            }`}>
-              No milestones established yet. Establish your goals above!
-            </div>
+            <EmptyState 
+              icon={Target}
+              title="No milestones established"
+              description="Establish custom saving target targets to allocate funds, configure deadline milestones, and monitor your visual progress bar."
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {goals.map((goal) => {
@@ -348,7 +378,7 @@ export const GoalsView: React.FC = () => {
         )}
       </AnimatePresence>
 
-    </div>
+    </motion.div>
   );
 };
 

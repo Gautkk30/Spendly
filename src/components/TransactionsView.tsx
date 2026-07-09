@@ -15,7 +15,33 @@ import {
   FolderMinus,
   Download
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import DynamicIcon from './Icons';
+import { EmptyState } from './EmptyState';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.03,
+      delayChildren: 0.02
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 140,
+      damping: 18
+    }
+  }
+};
 
 interface TransactionsViewProps {
   onOpenAddTx: () => void;
@@ -35,12 +61,34 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
     setGlobalSearch
   } = useApp();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const [sortField, setSortField] = useState<'date' | 'merchant' | 'amount'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   const search = globalSearch;
-  const setSearch = setGlobalSearch;
+  const setSearch = (val: string) => {
+    setGlobalSearch(val);
+    setCurrentPage(1);
+  };
   
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterWallet, setFilterWallet] = useState('all');
-  const [filterType, setFilterType] = useState('all');
+  const [filterCategory, setFilterCategoryState] = useState('all');
+  const [filterWallet, setFilterWalletState] = useState('all');
+  const [filterType, setFilterTypeState] = useState('all');
+
+  const setFilterCategory = (val: string) => {
+    setFilterCategoryState(val);
+    setCurrentPage(1);
+  };
+  const setFilterWallet = (val: string) => {
+    setFilterWalletState(val);
+    setCurrentPage(1);
+  };
+  const setFilterType = (val: string) => {
+    setFilterTypeState(val);
+    setCurrentPage(1);
+  };
   
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -71,9 +119,48 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
     return matchesSearch && matchesCategory && matchesWallet && matchesType;
   });
 
+  // ------------------------------------------
+  // SORTING LOGIC
+  // ------------------------------------------
+  const sorted = [...filtered].sort((a, b) => {
+    let valA: any = a[sortField];
+    let valB: any = b[sortField];
+
+    if (sortField === 'merchant') {
+      valA = a.merchant.toLowerCase();
+      valB = b.merchant.toLowerCase();
+    } else if (sortField === 'amount') {
+      valA = a.amount;
+      valB = b.amount;
+    } else if (sortField === 'date') {
+      valA = new Date(a.date).getTime();
+      valB = new Date(b.date).getTime();
+    }
+
+    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalEntries = sorted.length;
+  const totalPages = Math.ceil(totalEntries / pageSize) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  
+  const paginated = sorted.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+
+  const handleSort = (field: 'date' | 'merchant' | 'amount') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+    setCurrentPage(1);
+  };
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(filtered.map(t => t.id));
+      setSelectedIds(paginated.map(t => t.id));
     } else {
       setSelectedIds([]);
     }
@@ -146,9 +233,14 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
   const textMutedStyle = isLight ? 'text-zinc-500' : 'text-zinc-400';
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial="hidden"
+      animate="show"
+      variants={containerVariants}
+      className="space-y-6"
+    >
       {/* Title block */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className={`text-2xl font-bold tracking-tight ${titleStyle}`}>Ledger Auditing</h1>
           <p className={`text-xs ${textMutedStyle}`}>Search, filter, bulk-update or export transaction line-items</p>
@@ -188,7 +280,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
             Create Entry
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Interactive Filters Panel */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 ${panelStyle}`}>
@@ -272,29 +364,65 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
                   <input 
                     type="checkbox" 
                     onChange={handleSelectAll}
-                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                    checked={paginated.length > 0 && paginated.every(p => selectedIds.includes(p.id))}
                     className="accent-zinc-900 dark:accent-zinc-100 rounded cursor-pointer"
                   />
                 </th>
-                <th className="py-3.5 px-3">Merchant / Date</th>
+                <th className="py-3.5 px-3">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => handleSort('merchant')}
+                      className="flex items-center gap-1 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors uppercase text-[9px] font-bold cursor-pointer"
+                    >
+                      <span>Merchant</span>
+                      {sortField === 'merchant' && (
+                        <ChevronDown size={11} className={`transition-transform ${sortDirection === 'asc' ? 'rotate-180' : ''}`} />
+                      )}
+                    </button>
+                    <span className="text-zinc-300 dark:text-zinc-700">|</span>
+                    <button 
+                      onClick={() => handleSort('date')}
+                      className="flex items-center gap-1 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors uppercase text-[9px] font-bold cursor-pointer"
+                    >
+                      <span>Date</span>
+                      {sortField === 'date' && (
+                        <ChevronDown size={11} className={`transition-transform ${sortDirection === 'asc' ? 'rotate-180' : ''}`} />
+                      )}
+                    </button>
+                  </div>
+                </th>
                 <th className="py-3.5 px-3">Category</th>
                 <th className="py-3.5 px-3">Account</th>
                 <th className="py-3.5 px-3">Tags</th>
-                <th className="py-3.5 px-3 text-right">Amount</th>
+                <th className="py-3.5 px-3 text-right">
+                  <button 
+                    onClick={() => handleSort('amount')}
+                    className="flex items-center gap-1 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors uppercase text-[9px] font-bold cursor-pointer ml-auto"
+                  >
+                    <span>Amount</span>
+                    {sortField === 'amount' && (
+                      <ChevronDown size={11} className={`transition-transform ${sortDirection === 'asc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </button>
+                </th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${isLight ? 'divide-zinc-100' : 'divide-zinc-800/40'}`}>
-              {filtered.length === 0 ? (
+              {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-zinc-500">
-                    <FolderMinus size={32} className="mx-auto text-zinc-400 mb-3" />
-                    <p className="text-xs font-bold">No transactions found</p>
-                    <p className="text-[10px] text-zinc-400 mt-1">Try relaxing filters or create a new transaction entry</p>
+                  <td colSpan={7} className="p-6">
+                    <EmptyState 
+                      icon={FolderMinus}
+                      title="No transactions found"
+                      description="Try relaxing search filters or log a new transaction to populate your ledger."
+                      actionText="Add Transaction"
+                      onAction={onOpenAddTx}
+                    />
                   </td>
                 </tr>
               ) : (
-                filtered.map((tx) => {
+                paginated.map((tx) => {
                   const cat = categories.find(c => c.id === tx.categoryId);
                   const wall = wallets.find(w => w.id === tx.walletId);
                   const isExpense = tx.type === 'expense';
@@ -387,7 +515,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-1 opacity-75 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={() => handleDuplicate(tx)}
                             className={`p-1 rounded border cursor-pointer ${
@@ -427,14 +555,18 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
 
         {/* Mobile Touch-Friendly Card List View */}
         <div className="block md:hidden divide-y divide-zinc-100 dark:divide-zinc-800/40">
-          {filtered.length === 0 ? (
-            <div className="py-16 text-center text-zinc-500 px-4">
-              <FolderMinus size={32} className="mx-auto text-zinc-400 mb-3" />
-              <p className="text-xs font-bold">No transactions found</p>
-              <p className="text-[10px] text-zinc-400 mt-1">Try relaxing filters or create a new transaction entry</p>
+          {paginated.length === 0 ? (
+            <div className="p-4">
+              <EmptyState 
+                icon={FolderMinus}
+                title="No transactions found"
+                description="Try relaxing search filters or log a new transaction to populate your ledger."
+                actionText="Add Transaction"
+                onAction={onOpenAddTx}
+              />
             </div>
           ) : (
-            filtered.map((tx) => {
+            paginated.map((tx) => {
               const cat = categories.find(c => c.id === tx.categoryId);
               const wall = wallets.find(w => w.id === tx.walletId);
               const isExpense = tx.type === 'expense';
@@ -549,8 +681,64 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
             })
           )}
         </div>
+
+        {/* Pagination Footer */}
+        {totalEntries > 0 && (
+          <div className={`px-4 py-3 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-semibold ${
+            isLight ? 'border-zinc-100 bg-zinc-50/50 text-zinc-500' : 'border-zinc-850/60 bg-zinc-950/20 text-zinc-450'
+          }`}>
+            <span>
+              Showing {Math.min(totalEntries, (safeCurrentPage - 1) * pageSize + 1)} to{' '}
+              {Math.min(totalEntries, safeCurrentPage * pageSize)} of {totalEntries} entries
+            </span>
+            
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={safeCurrentPage === 1}
+                className={`px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isLight
+                    ? 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-700'
+                    : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+                }`}
+              >
+                Previous
+              </button>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`h-7 w-7 rounded-lg text-xs cursor-pointer transition-all ${
+                    safeCurrentPage === page
+                      ? isLight
+                        ? 'bg-zinc-900 text-white font-bold'
+                        : 'bg-zinc-100 text-zinc-950 font-bold'
+                      : isLight
+                      ? 'bg-transparent hover:bg-zinc-100 text-zinc-600'
+                      : 'bg-transparent hover:bg-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={safeCurrentPage === totalPages}
+                className={`px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isLight
+                    ? 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-700'
+                    : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

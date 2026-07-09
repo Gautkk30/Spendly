@@ -87,4 +87,8 @@ export interface UserProfile {
   theme: 'light' | 'dark' | 'midnight' | 'forest' | 'sunset' | 'amethyst';
   notificationsEnabled: boolean;
   emailVerified: boolean;
+  role?: 'admin' | 'user';
+  createdAt?: string;
+  lastLogin?: string;
+  googleId?: string;
 }

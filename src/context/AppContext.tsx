@@ -12,6 +12,8 @@ import {
 
 interface AppContextType {
   user: UserProfile | null;
+  token: string | null;
+  isAuthenticated: boolean;
   wallets: Wallet[];
   categories: Category[];
   transactions: Transaction[];
@@ -25,14 +27,11 @@ interface AppContextType {
   isLoading: boolean;
   error: string | null;
   
-  // Custom multi-account, branding & google login props
-  activeUserId: string;
+  // Branding, config & login actions
   appName: string;
   appLogo: string;
-  allUsers: UserProfile[];
   updateAppConfig: (appName: string, appLogo: string) => Promise<void>;
-  switchGoogleUser: (email: string, name?: string, avatarUrl?: string) => Promise<void>;
-  deleteUser: (userId: string) => Promise<void>;
+  login: () => Promise<void>;
   logout: () => void;
   
   // Actions
@@ -64,16 +63,13 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeUserId, setActiveUserId] = useState<string>(() => {
-    const saved = localStorage.getItem('spendly_active_user_id');
-    if (saved === 'logged_out') return '';
-    return saved || 'usr-101';
-  });
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const isAuthenticated = !!user;
+  const token = null; // Token is stored securely in HttpOnly cookies
+  
   const [appName, setAppName] = useState<string>('Spendly');
   const [appLogo, setAppLogo] = useState<string>('');
-  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
 
-  const [user, setUser] = useState<UserProfile | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -89,8 +85,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const getHeaders = () => {
     return {
-      'Content-Type': 'application/json',
-      'x-user-id': activeUserId
+      'Content-Type': 'application/json'
     };
   };
 
@@ -98,48 +93,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoading(true);
     setError(null);
     try {
-      // Always retrieve brand config and all simulated Google users
-      const [configRes, usersRes] = await Promise.all([
-        fetch('/api/config').then(r => r.json()),
-        fetch('/api/users').then(r => r.json()).catch(() => [])
-      ]);
-
-      setAppName(configRes.appName || 'Spendly');
-      setAppLogo(configRes.appLogo || '');
-      
-      let finalUsersRes = usersRes || [];
-      if (activeUserId && !finalUsersRes.some((u: any) => u.id === activeUserId)) {
-        const cachedUserStr = localStorage.getItem(`spendly_cache_user_${activeUserId}`);
-        if (cachedUserStr) {
-          try {
-            const payload = {
-              user: JSON.parse(cachedUserStr),
-              wallets: JSON.parse(localStorage.getItem(`spendly_cache_wallets_${activeUserId}`) || '[]'),
-              categories: JSON.parse(localStorage.getItem(`spendly_cache_categories_${activeUserId}`) || '[]'),
-              transactions: JSON.parse(localStorage.getItem(`spendly_cache_transactions_${activeUserId}`) || '[]'),
-              budgets: JSON.parse(localStorage.getItem(`spendly_cache_budgets_${activeUserId}`) || '[]'),
-              goals: JSON.parse(localStorage.getItem(`spendly_cache_goals_${activeUserId}`) || '[]'),
-              notifications: JSON.parse(localStorage.getItem(`spendly_cache_notifications_${activeUserId}`) || '[]'),
-            };
-
-            await fetch('/api/auth/google/restore', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId: activeUserId, payload })
-            });
-
-            const updatedUsersRes = await fetch('/api/users').then(r => r.json()).catch(() => []);
-            finalUsersRes = updatedUsersRes || [];
-          } catch (restoreErr) {
-            console.error('Failed to restore user from local storage cache:', restoreErr);
-          }
-        }
+      // 1. Fetch app branding configurations first (available publicly)
+      try {
+        const configRes = await fetch('/api/config').then(r => r.json());
+        setAppName(configRes.appName || 'Spendly');
+        setAppLogo(configRes.appLogo || '');
+      } catch (e) {
+        console.error('Failed to fetch app branding configuration:', e);
       }
 
-      setAllUsers(finalUsersRes);
-
-      if (!activeUserId) {
-        // Logged out / Welcome mode: reset active user states
+      // 2. Fetch current logged in user from verified session
+      const meRes = await fetch('/api/auth/me');
+      if (!meRes.ok) {
+        // Not authenticated
         setUser(null);
         setWallets([]);
         setCategories([]);
@@ -150,15 +116,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsLoading(false);
         return;
       }
+      const meUser = await meRes.json();
+      setUser({ ...meUser, defaultCurrency: 'INR' });
 
-      const [userRes, walletsRes, categoriesRes, txRes, budgetsRes, goalsRes, notifRes] = await Promise.all([
-        fetch('/api/user', { headers: { 'x-user-id': activeUserId } }).then(r => r.json()),
-        fetch('/api/wallets', { headers: { 'x-user-id': activeUserId } }).then(r => r.json()),
-        fetch('/api/categories', { headers: { 'x-user-id': activeUserId } }).then(r => r.json()),
-        fetch('/api/transactions', { headers: { 'x-user-id': activeUserId } }).then(r => r.json()),
-        fetch('/api/budgets', { headers: { 'x-user-id': activeUserId } }).then(r => r.json()),
-        fetch('/api/goals', { headers: { 'x-user-id': activeUserId } }).then(r => r.json()),
-        fetch('/api/notifications', { headers: { 'x-user-id': activeUserId } }).then(r => r.json())
+      // 3. Fetch private ledger data
+      const [walletsRes, categoriesRes, txRes, budgetsRes, goalsRes, notifRes] = await Promise.all([
+        fetch('/api/wallets').then(r => r.json()),
+        fetch('/api/categories').then(r => r.json()),
+        fetch('/api/transactions').then(r => r.json()),
+        fetch('/api/budgets').then(r => r.json()),
+        fetch('/api/goals').then(r => r.json()),
+        fetch('/api/notifications').then(r => r.json())
       ]);
 
       // Force all currency definitions to INR and scale USD metrics accordingly
@@ -175,7 +143,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const transactionsInINR = (txRes || []).map((tx: any) => {
         const correspondingWallet = walletsRes?.find((w: any) => w.id === tx.walletId);
-        // If the transaction's wallet was USD, scale the amount to INR
         if (correspondingWallet && correspondingWallet.currency !== 'INR') {
           return {
             ...tx,
@@ -207,7 +174,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return g;
       });
 
-      setUser({ ...userRes, defaultCurrency: 'INR' });
       setWallets(walletsInINR);
       setCategories(categoriesRes);
       setTransactions(transactionsInINR);
@@ -215,21 +181,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setGoals(goalsInINR);
       setNotifications(notifRes);
 
-      // Save to localStorage cache for persistent container resilience
-      try {
-        localStorage.setItem(`spendly_cache_user_${activeUserId}`, JSON.stringify({ ...userRes, defaultCurrency: 'INR' }));
-        localStorage.setItem(`spendly_cache_wallets_${activeUserId}`, JSON.stringify(walletsInINR));
-        localStorage.setItem(`spendly_cache_categories_${activeUserId}`, JSON.stringify(categoriesRes));
-        localStorage.setItem(`spendly_cache_transactions_${activeUserId}`, JSON.stringify(transactionsInINR));
-        localStorage.setItem(`spendly_cache_budgets_${activeUserId}`, JSON.stringify(budgetsInINR));
-        localStorage.setItem(`spendly_cache_goals_${activeUserId}`, JSON.stringify(goalsInINR));
-        localStorage.setItem(`spendly_cache_notifications_${activeUserId}`, JSON.stringify(notifRes));
-      } catch (e) {
-        console.error('Failed to save to local cache:', e);
-      }
-
-      if (userRes.theme) {
-        setThemeState(userRes.theme);
+      if (meUser.theme) {
+        setThemeState(meUser.theme);
       }
       setCurrencyState('INR'); // Lock to INR
     } catch (err: any) {
@@ -240,26 +193,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Run on activeUserId change
+  // Listen for OAuth Success callbacks from popup windows
   useEffect(() => {
-    fetchData();
-  }, [activeUserId]);
+    const handleAuthMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'OAUTH_AUTH_SUCCESS') {
+        fetchData();
+      }
+    };
+    
+    window.addEventListener('message', handleAuthMessage);
+    fetchData(); // Fetch initial session status on mount
 
-  // Whenever state changes, keep the local storage cache updated for offline resilience
-  useEffect(() => {
-    if (!activeUserId || !user) return;
-    try {
-      localStorage.setItem(`spendly_cache_user_${activeUserId}`, JSON.stringify(user));
-      localStorage.setItem(`spendly_cache_wallets_${activeUserId}`, JSON.stringify(wallets));
-      localStorage.setItem(`spendly_cache_categories_${activeUserId}`, JSON.stringify(categories));
-      localStorage.setItem(`spendly_cache_transactions_${activeUserId}`, JSON.stringify(transactions));
-      localStorage.setItem(`spendly_cache_budgets_${activeUserId}`, JSON.stringify(budgets));
-      localStorage.setItem(`spendly_cache_goals_${activeUserId}`, JSON.stringify(goals));
-      localStorage.setItem(`spendly_cache_notifications_${activeUserId}`, JSON.stringify(notifications));
-    } catch (e) {
-      console.error('Failed to sync state to local cache:', e);
-    }
-  }, [activeUserId, user, wallets, categories, transactions, budgets, goals, notifications]);
+    return () => {
+      window.removeEventListener('message', handleAuthMessage);
+    };
+  }, []);
 
   const updateAppConfig = async (newAppName: string, newAppLogo: string) => {
     try {
@@ -279,47 +227,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const switchGoogleUser = async (email: string, name?: string, avatarUrl?: string) => {
+  const login = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/google/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, avatarUrl })
-      });
-      if (!res.ok) throw new Error('Google switch failed');
-      const newUser = await res.json();
+      const res = await fetch('/api/auth/url');
+      const data = await res.json();
       
-      localStorage.setItem('spendly_active_user_id', newUser.id);
-      setActiveUserId(newUser.id); // This triggers the useEffect to reload all metrics under the new headers
-    } catch (e) {
-      console.error('Google account switch failed:', e);
+      const width = 500;
+      const height = 650;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      const popup = window.open(
+        data.url, 
+        'google_oauth_signin', 
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+      );
+      
+      if (!popup) {
+        throw new Error('Popup blocked! Please allow popups to sign in with Google.');
+      }
+    } catch (e: any) {
+      console.error('Google account sign-in failed:', e);
+      setError(e.message || 'Failed to initialize Google Sign-In.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const deleteUser = async (userId: string) => {
+  const logout = async () => {
+    setIsLoading(true);
     try {
-      const res = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-        headers: getHeaders()
-      });
-      if (!res.ok) throw new Error('Delete user profile failed');
-      
-      if (activeUserId === userId) {
-        logout();
-      } else {
-        await fetchData();
-      }
+      await fetch('/api/auth/logout', { method: 'POST' });
     } catch (e) {
-      console.error('Error deleting user:', e);
+      console.error('Logout error:', e);
     }
-  };
 
-  const logout = () => {
-    localStorage.setItem('spendly_active_user_id', 'logged_out');
-    setActiveUserId('');
+    setUser(null);
+    setWallets([]);
+    setCategories([]);
+    setTransactions([]);
+    setBudgets([]);
+    setGoals([]);
+    setNotifications([]);
+    
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // Clear cookies
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
+    setIsLoading(false);
   };
 
   const setTheme = (newTheme: 'light' | 'dark' | 'midnight' | 'forest' | 'sunset' | 'amethyst') => {
@@ -566,6 +528,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{
       user,
+      token,
+      isAuthenticated,
       wallets,
       categories,
       transactions,
@@ -579,13 +543,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isLoading,
       error,
       
-      activeUserId,
       appName,
       appLogo,
-      allUsers,
       updateAppConfig,
-      switchGoogleUser,
-      deleteUser,
+      login,
       logout,
       
       fetchData,

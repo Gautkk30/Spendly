@@ -1,7 +1,33 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { FolderPlus, Trash2, Tag, Palette } from 'lucide-react';
+import { motion } from 'motion/react';
 import DynamicIcon from './Icons';
+import { EmptyState } from './EmptyState';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.04,
+      delayChildren: 0.02
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 140,
+      damping: 18
+    }
+  }
+};
 
 export const CategoriesView: React.FC = () => {
   const { categories, addCategory, deleteCategory, theme } = useApp();
@@ -53,11 +79,16 @@ export const CategoriesView: React.FC = () => {
   const textMutedStyle = isLight ? 'text-zinc-500' : 'text-zinc-400';
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
+    <motion.div 
+      initial="hidden"
+      animate="show"
+      variants={containerVariants}
+      className="space-y-6"
+    >
+      <motion.div variants={itemVariants} className="space-y-1">
         <h1 className={`text-2xl font-bold tracking-tight ${titleStyle}`}>Category Registrations</h1>
         <p className={`text-xs ${textMutedStyle}`}>Establish and coordinate visual themes, colors, and classifications for your logs</p>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -187,48 +218,56 @@ export const CategoriesView: React.FC = () => {
         <div className="lg:col-span-2 space-y-4">
           <div className={`text-xs font-semibold uppercase tracking-wider ${textMutedStyle}`}>Indexed Classifications</div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {categories.map((cat) => (
-              <div 
-                key={cat.id}
-                className={`p-3.5 rounded-xl border flex items-center justify-between gap-2 shadow-sm ${
-                  isLight ? 'bg-white border-zinc-200' : 'bg-zinc-900/30 border-zinc-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div 
-                    className={`h-8.5 w-8.5 rounded-lg flex items-center justify-center shrink-0 border ${
-                      isLight ? 'border-zinc-100' : 'border-zinc-800/80'
-                    }`}
-                    style={{ backgroundColor: `${cat.color}12`, color: cat.color }}
-                  >
-                    <DynamicIcon name={cat.icon} size={14} />
+          {categories.length === 0 ? (
+            <EmptyState 
+              icon={FolderPlus}
+              title="No categories registered"
+              description="Register new visual custom category classifications on the left to organize and group ledger audits."
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {categories.map((cat) => (
+                <div 
+                  key={cat.id}
+                  className={`p-3.5 rounded-xl border flex items-center justify-between gap-2 shadow-sm ${
+                    isLight ? 'bg-white border-zinc-200' : 'bg-zinc-900/30 border-zinc-800/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className={`h-8.5 w-8.5 rounded-lg flex items-center justify-center shrink-0 border ${
+                        isLight ? 'border-zinc-100' : 'border-zinc-800/80'
+                      }`}
+                      style={{ backgroundColor: `${cat.color}12`, color: cat.color }}
+                    >
+                      <DynamicIcon name={cat.icon} size={14} />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className={`text-xs font-bold truncate ${titleStyle}`}>{cat.name}</span>
+                      <span className={`text-[9px] uppercase mt-0.5 tracking-wider font-bold ${textMutedStyle}`}>{cat.type}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className={`text-xs font-bold truncate ${titleStyle}`}>{cat.name}</span>
-                    <span className={`text-[9px] uppercase mt-0.5 tracking-wider font-bold ${textMutedStyle}`}>{cat.type}</span>
-                  </div>
-                </div>
 
-                {cat.isCustom && (
-                  <button 
-                    onClick={() => deleteCategory(cat.id)}
-                    className={`p-1.5 rounded-lg border cursor-pointer transition-all ${
-                      isLight 
-                        ? 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-red-500' 
-                        : 'bg-zinc-950 border-zinc-850 text-zinc-500 hover:text-red-400'
-                    }`}
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+                  {cat.isCustom && (
+                    <button 
+                      onClick={() => deleteCategory(cat.id)}
+                      className={`p-1.5 rounded-lg border cursor-pointer transition-all ${
+                        isLight 
+                          ? 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-red-500' 
+                          : 'bg-zinc-950 border-zinc-850 text-zinc-500 hover:text-red-400'
+                      }`}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
-    </div>
+    </motion.div>
   );
 };
 

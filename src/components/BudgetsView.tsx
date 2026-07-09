@@ -2,6 +2,32 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Plus, Trash2, PieChart, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { formatIndianNumber } from '../utils/format';
+import { motion } from 'motion/react';
+import { EmptyState } from './EmptyState';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.04,
+      delayChildren: 0.02
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 140,
+      damping: 18
+    }
+  }
+};
 
 export const BudgetsView: React.FC = () => {
   const { budgets, categories, addBudget, deleteBudget, transactions, theme } = useApp();
@@ -56,12 +82,17 @@ export const BudgetsView: React.FC = () => {
   const textMutedStyle = isLight ? 'text-zinc-500' : 'text-zinc-400';
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial="hidden"
+      animate="show"
+      variants={containerVariants}
+      className="space-y-6"
+    >
       {/* View Header */}
-      <div className="space-y-1">
+      <motion.div variants={itemVariants} className="space-y-1">
         <h1 className={`text-2xl font-bold tracking-tight ${titleStyle}`}>Monthly Guardrails</h1>
         <p className={`text-xs ${textMutedStyle}`}>Establish and monitor category spending ceilings to prevent leaks</p>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -132,11 +163,11 @@ export const BudgetsView: React.FC = () => {
           <div className={`text-xs font-semibold uppercase tracking-wider ${textMutedStyle}`}>Ceiling Audits</div>
           
           {budgets.length === 0 ? (
-            <div className={`p-12 border rounded-2xl text-center text-xs ${
-              isLight ? 'bg-white border-zinc-200 text-zinc-400' : 'bg-zinc-900/10 border-zinc-850 text-zinc-500'
-            }`}>
-              No budgets established. Fill out the configuration card on the left to activate smart guardrails.
-            </div>
+            <EmptyState 
+              icon={PieChart}
+              title="No budget guardrails established"
+              description="Establish custom category budget limits on the left to monitor expenses, prevent overspending, and flag warning thresholds automatically."
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {budgets.map((b) => {
@@ -230,7 +261,7 @@ export const BudgetsView: React.FC = () => {
         </div>
 
       </div>
-    </div>
+    </motion.div>
   );
 };
 

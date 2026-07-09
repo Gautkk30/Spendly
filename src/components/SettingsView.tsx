@@ -16,8 +16,33 @@ import {
   Trash2,
   LogOut
 } from 'lucide-react';
-import { CURRENCIES } from '../data/defaultData';
+import { motion } from 'motion/react';
+import { CURRENCIES, DEFAULT_AVATAR } from '../data/defaultData';
 import { CurrencyCode } from '../types';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.04,
+      delayChildren: 0.02
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 140,
+      damping: 18
+    }
+  }
+};
 
 export const SettingsView: React.FC = () => {
   const { 
@@ -30,10 +55,6 @@ export const SettingsView: React.FC = () => {
     appName,
     appLogo,
     updateAppConfig,
-    switchGoogleUser,
-    activeUserId,
-    allUsers,
-    deleteUser,
     logout
   } = useApp();
 
@@ -46,12 +67,6 @@ export const SettingsView: React.FC = () => {
   const [localAppName, setLocalAppName] = useState('Spendly');
   const [localAppLogo, setLocalAppLogo] = useState('');
   const [brandingSuccess, setBrandingSuccess] = useState(false);
-
-  // Google Switcher Dialog State
-  const [showGoogleDialog, setShowGoogleDialog] = useState(false);
-  const [googleEmail, setGoogleEmail] = useState('');
-  const [googleName, setGoogleName] = useState('');
-  const [googleAvatar, setGoogleAvatar] = useState('');
   
   // Profile picture base64 state
   const [avatar, setAvatar] = useState('');
@@ -148,25 +163,6 @@ export const SettingsView: React.FC = () => {
     setTimeout(() => setBrandingSuccess(false), 3000);
   };
 
-  const handleGoogleSwitchSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!googleEmail.trim()) return;
-    
-    // Choose selected preset avatar or random fallback
-    const selectedAvatar = googleAvatar || PRESET_AVATARS[Math.floor(Math.random() * PRESET_AVATARS.length)];
-    
-    await switchGoogleUser(
-      googleEmail.trim(), 
-      googleName.trim() || undefined, 
-      selectedAvatar
-    );
-
-    setShowGoogleDialog(false);
-    setGoogleEmail('');
-    setGoogleName('');
-    setGoogleAvatar('');
-  };
-
   const cardStyle = isLight 
     ? 'p-6 rounded-2xl bg-white border border-zinc-200 shadow-sm transition-all' 
     : 'p-6 rounded-2xl bg-zinc-900/30 border border-zinc-800/60 transition-all';
@@ -186,20 +182,17 @@ export const SettingsView: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Standard preset avatars for the switcher
-  const PRESET_AVATARS = [
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100',
-    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=100',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100'
-  ];
-
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
+    <motion.div 
+      initial="hidden"
+      animate="show"
+      variants={containerVariants}
+      className="space-y-6"
+    >
+      <motion.div variants={itemVariants} className="space-y-1">
         <h1 className={`text-2xl font-bold tracking-tight ${titleStyle}`}>App Configuration</h1>
         <p className={`text-xs ${textMutedStyle}`}>Manage your SaaS profile, Google accounts, and custom app branding settings</p>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -261,69 +254,6 @@ export const SettingsView: React.FC = () => {
               <Key size={14} className={activeTab === 'security' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
               <span>Security & Keyrings</span>
             </button>
-          </div>
-
-          {/* Section 2: Google Account Switcher */}
-          <div className={`p-5 border rounded-2xl shadow-sm space-y-4 ${
-            isLight ? 'bg-white border-zinc-200' : 'bg-zinc-900/30 border-zinc-800/60'
-          }`}>
-            <div className="space-y-0.5">
-              <h3 className={`font-bold text-xs ${titleStyle}`}>Multi-Account Google Login</h3>
-              <p className="text-[10px] text-zinc-400">Switch instantly between saved Google profiles</p>
-            </div>
-
-            <div className="space-y-2.5">
-              {allUsers.map((acc) => {
-                const isActive = (acc.id === activeUserId) || (user?.email === acc.email);
-                return (
-                  <div
-                    key={acc.id}
-                    className={`group w-full p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
-                      isActive 
-                        ? 'bg-emerald-500/5 border-emerald-500/20 shadow-sm ring-1 ring-emerald-500/10' 
-                        : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100/70' : 'bg-zinc-950/20 border-zinc-850 hover:bg-zinc-900/30'
-                    }`}
-                  >
-                    <button
-                      onClick={() => switchGoogleUser(acc.email, acc.name, acc.avatarUrl)}
-                      className="flex-1 text-left flex items-center gap-3 cursor-pointer min-w-0"
-                    >
-                      <img src={acc.avatarUrl || PRESET_AVATARS[0]} alt={acc.name} className="h-7 w-7 rounded-lg object-cover shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{acc.name}</span>
-                          {isActive && <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-wide shrink-0">Active</span>}
-                        </div>
-                        <p className="text-[9px] text-zinc-400 truncate">{acc.email}</p>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (confirm(`Are you absolutely sure you want to delete ${acc.name}'s account and ALL associated financial data? This cannot be undone.`)) {
-                          await deleteUser(acc.id);
-                        }
-                      }}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0"
-                      title="Delete account permanently"
-                    >
-                      <Trash2 size={12} className="stroke-[2.5]" />
-                    </button>
-                  </div>
-                );
-              })}
-
-              <button
-                onClick={() => setShowGoogleDialog(true)}
-                className={`w-full py-2 px-3 border border-dashed rounded-xl flex items-center justify-center gap-2 text-[10px] font-bold cursor-pointer transition-all ${
-                  isLight ? 'border-zinc-300 text-zinc-600 hover:bg-zinc-50' : 'border-zinc-800 text-zinc-400 hover:bg-zinc-900/30'
-                }`}
-              >
-                <Plus size={11} />
-                <span>Link Another Google Account</span>
-              </button>
-            </div>
           </div>
         </div>
 
@@ -489,92 +419,94 @@ export const SettingsView: React.FC = () => {
           </div>
 
           {/* Panel 2: Administrator custom branding dashboard updates */}
-          <div className={cardStyle}>
-            <div className={`flex items-center justify-between border-b pb-4 mb-5 ${
-              isLight ? 'border-zinc-100' : 'border-zinc-850/60'
-            }`}>
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5">
-                  <Building size={14} className="text-emerald-500" />
-                  <h3 className={`font-bold text-sm ${titleStyle}`}>SaaS Branding Controls (Admin Mode)</h3>
+          {user?.email === 'gauthamkk30@gmail.com' && (
+            <div className={cardStyle}>
+              <div className={`flex items-center justify-between border-b pb-4 mb-5 ${
+                isLight ? 'border-zinc-100' : 'border-zinc-850/60'
+              }`}>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Building size={14} className="text-emerald-500" />
+                    <h3 className={`font-bold text-sm ${titleStyle}`}>SaaS Branding Controls (Admin Mode)</h3>
+                  </div>
+                  <p className={`text-[10px] ${textMutedStyle}`}>Change the App Name and App Logo. Instantly updates on every user device!</p>
                 </div>
-                <p className={`text-[10px] ${textMutedStyle}`}>Change the App Name and App Logo. Instantly updates on every user device!</p>
-              </div>
-              {brandingSuccess && (
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/5 px-2.5 py-1 border border-emerald-500/10 rounded-full animate-fade-in">
-                  <CheckCircle2 size={11} /> Branding Synchronized
-                </span>
-              )}
-            </div>
-
-            <form onSubmit={handleSaveBranding} className="space-y-5">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Application Branded Name</label>
-                  <input 
-                    type="text" 
-                    value={localAppName}
-                    onChange={(e) => setLocalAppName(e.target.value)}
-                    placeholder="e.g. Spendly"
-                    className={`${inputStyle} font-semibold`}
-                  />
-                </div>
-
-                <div>
-                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>SaaS Web App Logo URL / Input</label>
-                  <input 
-                    type="text" 
-                    value={localAppLogo}
-                    onChange={(e) => setLocalAppLogo(e.target.value)}
-                    placeholder="e.g. Image URL or Base64 String"
-                    className={inputStyle}
-                  />
-                </div>
+                {brandingSuccess && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/5 px-2.5 py-1 border border-emerald-500/10 rounded-full animate-fade-in">
+                    <CheckCircle2 size={11} /> Branding Synchronized
+                  </span>
+                )}
               </div>
 
-              {/* Logo device uploader for administrators */}
-              <div className="p-4 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20 flex items-center gap-5">
-                <div className="h-10 w-10 rounded-lg bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shrink-0">
-                  {localAppLogo ? (
-                    <img src={localAppLogo} alt="Branded Logo Preview" className="h-8 w-8 rounded object-cover" />
-                  ) : (
-                    <Globe size={18} className="text-zinc-400" />
-                  )}
+              <form onSubmit={handleSaveBranding} className="space-y-5">
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Application Branded Name</label>
+                    <input 
+                      type="text" 
+                      value={localAppName}
+                      onChange={(e) => setLocalAppName(e.target.value)}
+                      placeholder="e.g. Spendly"
+                      className={`${inputStyle} font-semibold`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>SaaS Web App Logo URL / Input</label>
+                    <input 
+                      type="text" 
+                      value={localAppLogo}
+                      onChange={(e) => setLocalAppLogo(e.target.value)}
+                      placeholder="e.g. Image URL or Base64 String"
+                      className={inputStyle}
+                    />
+                  </div>
                 </div>
-                <div className="flex-1 space-y-1">
-                  <span className={`text-[11px] font-bold block ${titleStyle}`}>Upload Brand Logo Icon from device</span>
-                  <p className="text-[9px] text-zinc-400">Quickly upload an image asset from your device to replace the global SVG launcher icon.</p>
-                  <input 
-                    type="file" 
-                    ref={logoInputRef}
-                    accept="image/*"
-                    onChange={handleLogoFileChange}
-                    className="hidden"
-                  />
+
+                {/* Logo device uploader for administrators */}
+                <div className="p-4 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20 flex items-center gap-5">
+                  <div className="h-10 w-10 rounded-lg bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shrink-0">
+                    {localAppLogo ? (
+                      <img src={localAppLogo} alt="Branded Logo Preview" className="h-8 w-8 rounded object-cover" />
+                    ) : (
+                      <Globe size={18} className="text-zinc-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <span className={`text-[11px] font-bold block ${titleStyle}`}>Upload Brand Logo Icon from device</span>
+                    <p className="text-[9px] text-zinc-400">Quickly upload an image asset from your device to replace the global SVG launcher icon.</p>
+                    <input 
+                      type="file" 
+                      ref={logoInputRef}
+                      accept="image/*"
+                      onChange={handleLogoFileChange}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border cursor-pointer transition-all ${
+                        isLight ? 'bg-white hover:bg-zinc-50 border-zinc-200' : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+                      }`}
+                    >
+                      Select Logo File
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
                   <button
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border cursor-pointer transition-all ${
-                      isLight ? 'bg-white hover:bg-zinc-50 border-zinc-200' : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
-                    }`}
+                    type="submit"
+                    className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white`}
                   >
-                    Select Logo File
+                    <RefreshCw size={12} className="animate-spin-slow" />
+                    <span>Update & Push Globally</span>
                   </button>
                 </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white`}
-                >
-                  <RefreshCw size={12} className="animate-spin-slow" />
-                  <span>Update & Push Globally</span>
-                </button>
-              </div>
-            </form>
-          </div>
+              </form>
+            </div>
+          )}
           </>
           )}
 
@@ -840,87 +772,7 @@ export const SettingsView: React.FC = () => {
 
       </div>
 
-      {/* ==========================================
-          SIMULATED GOOGLE ACCOUNT SIGN IN MODAL
-         ========================================== */}
-      {showGoogleDialog && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4">
-          <div className={`w-full max-w-sm rounded-2xl border shadow-2xl p-6 space-y-5 animate-scale-up ${
-            isLight ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-zinc-950 border-zinc-800 text-zinc-100'
-          }`}>
-            <div className="text-center space-y-2">
-              <div className="h-10 w-10 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center mx-auto border border-zinc-200 dark:border-zinc-800">
-                <Globe size={20} className="text-emerald-500" />
-              </div>
-              <h3 className="font-bold text-sm">Sign in with Google Account</h3>
-              <p className="text-[10px] text-zinc-400">Add an isolated financial profile to this Spendly session</p>
-            </div>
-
-            <form onSubmit={handleGoogleSwitchSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider">Google Email Address</label>
-                <input 
-                  type="email"
-                  required
-                  value={googleEmail}
-                  onChange={(e) => setGoogleEmail(e.target.value)}
-                  placeholder="e.g. gauthamkk30@gmail.com"
-                  className={inputStyle}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider">Your Full Name (Optional)</label>
-                <input 
-                  type="text"
-                  value={googleName}
-                  onChange={(e) => setGoogleName(e.target.value)}
-                  placeholder="e.g. Gautham K"
-                  className={inputStyle}
-                />
-              </div>
-
-              {/* Preset avatar selector */}
-              <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-wider block">Choose Avatar Preset</label>
-                <div className="flex items-center gap-3">
-                  {PRESET_AVATARS.map((url) => (
-                    <button
-                      key={url}
-                      type="button"
-                      onClick={() => setGoogleAvatar(url)}
-                      className={`h-9 w-9 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                        googleAvatar === url ? 'border-emerald-500 scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={url} alt="Preset profile picture" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowGoogleDialog(false)}
-                  className={`flex-1 py-2 text-xs font-bold rounded-xl border cursor-pointer ${
-                    isLight ? 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200' : 'bg-zinc-900 hover:bg-zinc-850 border-zinc-800'
-                  }`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 text-xs font-bold rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:opacity-90 cursor-pointer"
-                >
-                  Authorize Profile
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 };
 

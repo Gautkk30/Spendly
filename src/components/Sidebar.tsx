@@ -10,9 +10,11 @@ import {
   Settings, 
   ChevronLeft, 
   ChevronRight,
-  LogOut
+  LogOut,
+  User
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { DEFAULT_AVATAR } from '../data/defaultData';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -21,6 +23,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
   const { activeView, setActiveView, theme, appName, appLogo, user, logout } = useApp();
+  const [menuOpen, setMenuOpen] = React.useState(false);
 
   const isLight = theme === 'light';
 
@@ -52,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
-  const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100';
+  const defaultAvatar = DEFAULT_AVATAR;
 
   const getSidebarBgClass = () => {
     switch (theme) {
@@ -164,11 +167,68 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
       </nav>
 
       {/* Sidebar Footer with Dynamic User Summary */}
-      <div className={`p-4 border-t flex flex-col gap-3 ${
+      <div className={`p-4 border-t flex flex-col gap-3 relative ${
         isLight ? 'border-zinc-200' : 'border-zinc-800/60'
       }`}>
+        {/* Click-away backdrop overlay */}
+        {menuOpen && (
+          <div 
+            className="fixed inset-0 z-40 bg-transparent" 
+            onClick={() => setMenuOpen(false)}
+          />
+        )}
+
+        {/* Profile Dropdown Menu */}
+        {menuOpen && (
+          <div className={`absolute bottom-16 left-4 right-4 z-50 p-2 rounded-2xl border shadow-xl flex flex-col gap-1 transition-all duration-200 ${
+            isLight 
+              ? 'bg-white border-zinc-200/80 text-zinc-900' 
+              : 'bg-zinc-950 border-zinc-850/80 text-zinc-100'
+          }`}>
+            <button
+              onClick={() => {
+                setActiveView('settings');
+                setMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer text-left ${
+                isLight ? 'hover:bg-zinc-100' : 'hover:bg-zinc-900/55'
+              }`}
+            >
+              <User size={13} className="opacity-80" />
+              <span>Profile</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveView('settings');
+                setMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer text-left ${
+                isLight ? 'hover:bg-zinc-100' : 'hover:bg-zinc-900/55'
+              }`}
+            >
+              <Settings size={13} className="opacity-80" />
+              <span>Settings</span>
+            </button>
+            <div className={`h-px my-1 ${isLight ? 'bg-zinc-200' : 'bg-zinc-800/50'}`} />
+            <button
+              onClick={() => {
+                logout();
+                setMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer text-left"
+            >
+              <LogOut size={13} />
+              <span>Logout</span>
+            </button>
+          </div>
+        )}
+
         {!collapsed ? (
-          <div className="flex items-center justify-between gap-2 p-1">
+          <div 
+            onClick={() => setMenuOpen(!menuOpen)}
+            className={`flex items-center justify-between gap-2 p-1.5 rounded-xl cursor-pointer hover:bg-zinc-500/5 transition-colors select-none`}
+            title="Account Actions"
+          >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <img 
                 src={user?.avatarUrl || defaultAvatar} 
@@ -183,28 +243,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
               </div>
             </div>
             
-            <button 
-              onClick={() => logout()}
-              className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-all cursor-pointer shrink-0"
-              title="Log Out of Account"
-            >
-              <LogOut size={13} className="stroke-[2.5]" />
-            </button>
+            <ChevronRight 
+              size={12} 
+              className={`transition-transform duration-200 shrink-0 ${menuOpen ? 'rotate-90' : ''} ${
+                isLight ? 'text-zinc-400' : 'text-zinc-500'
+              }`} 
+            />
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2">
+          <div 
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex flex-col items-center gap-2 cursor-pointer hover:bg-zinc-500/5 p-1.5 rounded-xl transition-colors"
+            title="Account Actions"
+          >
             <img 
               src={user?.avatarUrl || defaultAvatar} 
               alt={`${user?.name || 'User'} avatar`} 
               className="h-8 w-8 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-800"
             />
-            <button 
-              onClick={() => logout()}
-              className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-all cursor-pointer"
-              title="Log Out of Account"
-            >
-              <LogOut size={12} className="stroke-[2.5]" />
-            </button>
           </div>
         )}
       </div>

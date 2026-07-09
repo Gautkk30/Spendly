@@ -31,7 +31,45 @@ import {
   LineChart, 
   Line 
 } from 'recharts';
+import { motion } from 'motion/react';
 import DynamicIcon from './Icons';
+import { AnimatedCounter } from './AnimatedCounter';
+
+const cardContainerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.04,
+      delayChildren: 0.02
+    }
+  }
+};
+
+const cardItemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 140,
+      damping: 18
+    }
+  }
+};
+
+const textRevealVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.45,
+      ease: [0.16, 1, 0.3, 1]
+    }
+  }
+};
 
 interface DashboardOverviewProps {
   onOpenAddTx: () => void;
@@ -48,7 +86,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
     deleteTransaction, 
     addTransaction,
     theme,
-    user
+    user,
+    budgets
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'daily' | 'analytics'>('daily');
@@ -256,13 +295,108 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
   const titleStyle = isLight ? 'text-zinc-900' : 'text-zinc-100';
   const textMutedStyle = isLight ? 'text-zinc-500' : 'text-zinc-400';
 
+  // 1. Personalized Greeting based on Time of Day
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return 'Good morning';
+    if (hr < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  // 2. Dynamic Financial Insights calculations
+  const now = new Date();
+  const currentMonthNum = now.getMonth(); // 0-11
+  const currentYearNum = now.getFullYear();
+  
+  const prevMonthNum = currentMonthNum === 0 ? 11 : currentMonthNum - 1;
+  const prevYearNum = currentMonthNum === 0 ? currentYearNum - 1 : currentYearNum;
+
+  let curMonthExpenseUSD = 0;
+  let prevMonthExpenseUSD = 0;
+
+  transactions.forEach(t => {
+    if (t.type === 'expense') {
+      const tDate = new Date(t.date);
+      const wallet = wallets.find(w => w.id === t.walletId);
+      const rateToUSD = CURRENCIES[wallet?.currency || 'USD']?.rate || 1.0;
+      const amtUSD = t.amount / rateToUSD;
+
+      if (tDate.getMonth() === currentMonthNum && tDate.getFullYear() === currentYearNum) {
+        curMonthExpenseUSD += amtUSD;
+      } else if (tDate.getMonth() === prevMonthNum && tDate.getFullYear() === prevYearNum) {
+        prevMonthExpenseUSD += amtUSD;
+      }
+    }
+  });
+
+  const curMonthExpense = convertAmount(curMonthExpenseUSD);
+  const prevMonthExpense = convertAmount(prevMonthExpenseUSD);
+
+  let expenseChangePercent = 0;
+  let expenseChangeDirection: 'up' | 'down' | 'stable' = 'stable';
+  if (prevMonthExpense > 0) {
+    const diff = curMonthExpense - prevMonthExpense;
+    expenseChangePercent = Math.abs(Math.round((diff / prevMonthExpense) * 100));
+    expenseChangeDirection = diff > 0 ? 'up' : diff < 0 ? 'down' : 'stable';
+  }
+
+  // Find top spending category
+  let topCategoryName = '';
+  let topCategoryPercentage = 0;
+  if (categoryChartData.length > 0) {
+    const sortedCats = [...categoryChartData].sort((a, b) => b.value - a.value);
+    const highest = sortedCats[0];
+    const totalSpending = categoryChartData.reduce((sum, c) => sum + c.value, 0);
+    if (totalSpending > 0) {
+      topCategoryName = highest.name;
+      topCategoryPercentage = Math.round((highest.value / totalSpending) * 100);
+    }
+  }
+
+  // Find goal closest to completion
+  let bestGoalName = '';
+  let bestGoalProgress = 0;
+  if (goals && goals.length > 0) {
+    let maxProg = -1;
+    goals.forEach(g => {
+      const prog = g.currentAmount / g.targetAmount;
+      if (prog > maxProg && prog < 1.0) {
+        maxProg = prog;
+        bestGoalName = g.name;
+        bestGoalProgress = Math.round(prog * 100);
+      }
+    });
+  }
+
+  // Check budget strain
+  let strainedCategoryName = '';
+  let strainedBudgetPercent = 0;
+  if (budgets && budgets.length > 0) {
+    let maxStrain = -1;
+    budgets.forEach(b => {
+      const prog = b.spent / b.amount;
+      if (prog > maxStrain) {
+        maxStrain = prog;
+        const cat = categories.find(c => c.id === b.categoryId);
+        strainedCategoryName = cat?.name || 'All';
+        strainedBudgetPercent = Math.round(prog * 100);
+      }
+    });
+  }
+
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial="hidden"
+      animate="show"
+      variants={cardContainerVariants}
+      className="space-y-6"
+    >
       {/* Welcome & Overview Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+      <motion.div variants={textRevealVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
         <div className="space-y-1">
-          <h1 className={`text-2xl font-bold tracking-tight ${titleStyle}`}>
-            Welcome back, {user?.name?.split(' ')[0] || 'Gautham'}
+          <h1 className={`text-2xl font-bold tracking-tight flex items-center gap-1.5 ${titleStyle}`}>
+            <span>{getGreeting()}, {user?.name?.split(' ')[0] || 'Gautham'}</span>
+            <span className="animate-[wave_1.5s_infinite] origin-[70%_70%] inline-block">👋</span>
           </h1>
           <p className={`text-xs ${textMutedStyle}`}>
             Manage your cash flow with elegance and precision.
@@ -305,15 +439,97 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
             Add Transaction
           </button>
         </div>
-      </div>
+      </motion.div>
+
+      {/* Dynamic Financial Insights Section */}
+      <motion.div 
+        variants={textRevealVariants}
+        className={`grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl border ${
+          isLight 
+            ? 'bg-zinc-50/50 border-zinc-200/80' 
+            : 'bg-zinc-900/10 border-zinc-850/60'
+        }`}
+      >
+        {/* Insight 1: Spending Trend */}
+        <div className="flex gap-3.5 items-start">
+          <div className={`p-2.5 rounded-xl border shrink-0 ${
+            expenseChangeDirection === 'down'
+              ? 'text-emerald-500 bg-emerald-500/5 border-emerald-500/10'
+              : expenseChangeDirection === 'up'
+              ? 'text-red-500 bg-red-500/5 border-red-500/10'
+              : 'text-zinc-500 bg-zinc-500/5 border-zinc-500/10'
+          }`}>
+            <TrendingUp size={16} className={expenseChangeDirection === 'down' ? 'rotate-180' : ''} />
+          </div>
+          <div>
+            <h4 className={`text-xs font-bold leading-tight ${titleStyle}`}>
+              {expenseChangeDirection === 'down' 
+                ? 'Under Budget Trend' 
+                : expenseChangeDirection === 'up' 
+                ? 'Increased Outgoings' 
+                : 'Consistent Spending'}
+            </h4>
+            <p className={`text-[11px] leading-relaxed mt-0.5 ${textMutedStyle}`}>
+              {expenseChangePercent > 0 
+                ? `You spent ${expenseChangePercent}% ${expenseChangeDirection === 'down' ? 'less' : 'more'} than last month.` 
+                : 'Your monthly spending is matching previous trends.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Insight 2: Largest Spending Category */}
+        <div className="flex gap-3.5 items-start">
+          <div className={`p-2.5 rounded-xl border shrink-0 ${
+            isLight ? 'bg-zinc-100 text-zinc-600 border-zinc-200' : 'bg-zinc-950/40 text-zinc-400 border-zinc-850'
+          }`}>
+            <PieIcon size={16} />
+          </div>
+          <div>
+            <h4 className={`text-xs font-bold leading-tight ${titleStyle}`}>
+              {topCategoryName ? 'Primary Outlay Category' : 'Calibrating Outlays'}
+            </h4>
+            <p className={`text-[11px] leading-relaxed mt-0.5 ${textMutedStyle}`}>
+              {topCategoryName 
+                ? `${topCategoryName} is your largest expense category, making up ${topCategoryPercentage}% of spending.` 
+                : 'We are analyzing category groupings to identify outlays.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Insight 3: Goals Closest to Completion or Budget Strain */}
+        <div className="flex gap-3.5 items-start">
+          <div className={`p-2.5 rounded-xl border shrink-0 ${
+            strainedBudgetPercent > 90
+              ? 'text-amber-500 bg-amber-500/5 border-amber-500/10'
+              : 'text-emerald-500 bg-emerald-500/5 border-emerald-500/10'
+          }`}>
+            {strainedBudgetPercent > 90 ? <FolderMinus size={16} /> : <Target size={16} />}
+          </div>
+          <div>
+            <h4 className={`text-xs font-bold leading-tight ${titleStyle}`}>
+              {strainedBudgetPercent > 90 ? 'Budget Threshold Reached' : bestGoalName ? 'Target Milestone Close' : 'Financial Guardrails'}
+            </h4>
+            <p className={`text-[11px] leading-relaxed mt-0.5 ${textMutedStyle}`}>
+              {strainedBudgetPercent > 90 
+                ? `You have consumed ${strainedBudgetPercent}% of your ${strainedCategoryName} monthly limit.` 
+                : bestGoalName 
+                ? `Your '${bestGoalName}' milestone is ${bestGoalProgress}% complete. Keep pushing!` 
+                : 'All saving milestones and budget thresholds are in safe zones.'}
+            </p>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Conditionally render the active tab content to prevent visual clutter */}
       {activeTab === 'daily' ? (
         <div className="space-y-6">
           {/* Today's Stats Cards Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <motion.div 
+            variants={cardContainerVariants}
+            className="grid grid-cols-1 sm:grid-cols-3 gap-5"
+          >
             {/* Today's Income */}
-            <div className={cardStyle}>
+            <motion.div variants={cardItemVariants} className={cardStyle}>
               <div className="flex items-center justify-between mb-4">
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${textMutedStyle}`}>Today's Income</span>
                 <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isLight ? 'bg-zinc-50 text-zinc-600' : 'bg-zinc-900/60 text-zinc-400'}`}>
@@ -322,14 +538,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
               </div>
               <div>
                 <div className={`font-bold text-xl tracking-tight mb-1 ${titleStyle}`}>
-                  {formatVal(todayIncome)}
+                  <AnimatedCounter value={todayIncome} />
                 </div>
                 <p className={`text-[10px] ${textMutedStyle}`}>Daily credited cash flows</p>
               </div>
-            </div>
+            </motion.div>
 
             {/* Today's Expense */}
-            <div className={cardStyle}>
+            <motion.div variants={cardItemVariants} className={cardStyle}>
               <div className="flex items-center justify-between mb-4">
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${textMutedStyle}`}>Today's Expense</span>
                 <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isLight ? 'bg-zinc-50 text-zinc-600' : 'bg-zinc-900/60 text-zinc-400'}`}>
@@ -338,14 +554,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
               </div>
               <div>
                 <div className={`font-bold text-xl tracking-tight mb-1 text-red-500`}>
-                  {formatVal(todayExpense)}
+                  <AnimatedCounter value={todayExpense} />
                 </div>
                 <p className={`text-[10px] ${textMutedStyle}`}>Today's active outgoings</p>
               </div>
-            </div>
+            </motion.div>
 
             {/* Monthly Net Savings */}
-            <div className={cardStyle}>
+            <motion.div variants={cardItemVariants} className={cardStyle}>
               <div className="flex items-center justify-between mb-4">
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${textMutedStyle}`}>Monthly net savings</span>
                 <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isLight ? 'bg-zinc-50 text-zinc-600' : 'bg-zinc-900/60 text-zinc-400'}`}>
@@ -354,12 +570,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
               </div>
               <div>
                 <div className={`font-bold text-xl tracking-tight mb-1 ${netSavings < 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                  {formatVal(netSavings)}
+                  <AnimatedCounter value={netSavings} />
                 </div>
                 <p className={`text-[10px] ${textMutedStyle}`}>Accumulated monthly surplus</p>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           {/* Today's Activity Log */}
           <div className={cardStyle}>
@@ -811,7 +1027,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

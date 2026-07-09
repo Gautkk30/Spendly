@@ -7,7 +7,8 @@ import {
   INITIAL_TRANSACTIONS, 
   INITIAL_BUDGETS, 
   INITIAL_GOALS, 
-  INITIAL_NOTIFICATIONS 
+  INITIAL_NOTIFICATIONS,
+  DEFAULT_AVATAR
 } from '../src/data/defaultData';
 import { 
   Category, 
@@ -54,6 +55,45 @@ class Database {
         if (!parsed.appConfig) {
           parsed.appConfig = { appName: 'Spendly', appLogo: '' };
         }
+        
+        // Purge legacy mock items to make sure every user starts at exactly ZERO stats
+        const mockTxIds = ['tx-1', 'tx-2', 'tx-3', 'tx-4', 'tx-5', 'tx-6', 'tx-7', 'tx-8', 'tx-9'];
+        if (parsed.transactions) {
+          parsed.transactions = parsed.transactions.filter((tx: any) => !mockTxIds.includes(tx.id));
+        } else {
+          parsed.transactions = [];
+        }
+
+        const mockBudgetIds = ['b-1', 'b-2', 'b-3', 'b-4'];
+        if (parsed.budgets) {
+          parsed.budgets = parsed.budgets.filter((b: any) => !mockBudgetIds.includes(b.id));
+        } else {
+          parsed.budgets = [];
+        }
+
+        const mockGoalIds = ['g-1', 'g-2', 'g-3'];
+        if (parsed.goals) {
+          parsed.goals = parsed.goals.filter((g: any) => !mockGoalIds.includes(g.id));
+        } else {
+          parsed.goals = [];
+        }
+
+        // Recalculate wallet balances dynamically based on remaining user-created transactions
+        if (parsed.wallets) {
+          parsed.wallets.forEach((w: any) => {
+            const txs = parsed.transactions.filter((tx: any) => tx.walletId === w.id);
+            let balance = 0;
+            txs.forEach((tx: any) => {
+              if (tx.type === 'income') {
+                balance += tx.amount;
+              } else {
+                balance -= tx.amount;
+              }
+            });
+            w.balance = balance;
+          });
+        }
+
         return parsed;
       }
     } catch (e) {
@@ -172,12 +212,20 @@ class Database {
     return idx !== -1 ? this.data.users[idx] : this.data.user;
   }
 
-  public getOrCreateUserByEmail(email: string, name?: string, avatarUrl?: string): UserProfile {
+  public getOrCreateUserByEmail(email: string, name?: string, avatarUrl?: string, googleId?: string): UserProfile {
     if (!this.data.users) {
       this.data.users = [this.data.user];
     }
     const existing = this.data.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const role = email.toLowerCase() === 'gauthamkk30@gmail.com' ? 'admin' : 'user';
+    
     if (existing) {
+      existing.lastLogin = new Date().toISOString();
+      if (googleId) existing.googleId = googleId;
+      if (name && !existing.name) existing.name = name;
+      if (avatarUrl && !existing.avatarUrl) existing.avatarUrl = avatarUrl;
+      existing.role = role;
+      this.save();
       return existing;
     }
 
@@ -186,17 +234,21 @@ class Database {
       id: newUserId,
       name: name || email.split('@')[0],
       email: email,
-      avatarUrl: avatarUrl || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100`,
-      defaultCurrency: 'USD',
+      avatarUrl: avatarUrl || DEFAULT_AVATAR,
+      defaultCurrency: 'INR',
       language: 'en',
       theme: 'dark',
       notificationsEnabled: true,
-      emailVerified: true
+      emailVerified: true,
+      role: role,
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+      googleId: googleId
     };
     
     this.data.users.push(newUser);
 
-    // Seed realistic onboarding data for the new account
+    // Seed empty onboarding wallets with zero balance for the new account
     const walletMapping: Record<string, string> = {};
     INITIAL_WALLETS.forEach(w => {
       const newWId = `w-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
@@ -204,34 +256,7 @@ class Database {
       this.data.wallets.push({
         ...w,
         id: newWId,
-        userId: newUserId as any
-      });
-    });
-
-    INITIAL_TRANSACTIONS.forEach(t => {
-      const newTId = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-      this.data.transactions.push({
-        ...t,
-        id: newTId,
-        walletId: walletMapping[t.walletId] || t.walletId,
-        userId: newUserId as any
-      });
-    });
-
-    INITIAL_BUDGETS.forEach(b => {
-      const newBId = `b-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-      this.data.budgets.push({
-        ...b,
-        id: newBId,
-        userId: newUserId as any
-      });
-    });
-
-    INITIAL_GOALS.forEach(g => {
-      const newGId = `g-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-      this.data.goals.push({
-        ...g,
-        id: newGId,
+        balance: 0.0,
         userId: newUserId as any
       });
     });
@@ -239,7 +264,7 @@ class Database {
     this.data.notifications.unshift({
       id: `nt-${Date.now()}`,
       title: 'Welcome to Spendly! 🎉',
-      message: 'Your Google Account multi-profile has been seeded successfully.',
+      message: 'Your Google Account profile has been set up successfully. Start tracking by creating your first entry!',
       type: 'success',
       timestamp: new Date().toISOString(),
       read: false,
@@ -262,44 +287,45 @@ class Database {
     return wallet;
   }
 
-  public updateWallet(id: string, update: Partial<Wallet>): Wallet | null {
-    const idx = this.data.wallets.findIndex(w => w.id === id);
+  public updateWallet(userId: string, id: string, update: Partial<Wallet>): Wallet | null {
+    const idx = this.data.wallets.findIndex(w => w.id === id && (w as any).userId === userId);
     if (idx === -1) return null;
     this.data.wallets[idx] = { ...this.data.wallets[idx], ...update };
     this.save();
     return this.data.wallets[idx];
   }
 
-  public deleteWallet(id: string): boolean {
+  public deleteWallet(userId: string, id: string): boolean {
     const originalLength = this.data.wallets.length;
-    this.data.wallets = this.data.wallets.filter(w => w.id !== id);
-    this.data.transactions = this.data.transactions.filter(t => t.walletId !== id);
+    this.data.wallets = this.data.wallets.filter(w => !(w.id === id && (w as any).userId === userId));
+    this.data.transactions = this.data.transactions.filter(t => !(t.walletId === id && (t as any).userId === userId));
     this.save();
     return this.data.wallets.length < originalLength;
   }
 
   // Categories Actions
-  public getCategories(): Category[] {
-    return this.data.categories;
+  public getCategories(userId?: string): Category[] {
+    return this.data.categories.filter(c => !c.isCustom || (userId && (c as any).userId === userId));
   }
 
-  public addCategory(category: Category): Category {
+  public addCategory(userId: string, category: Category): Category {
+    (category as any).userId = userId;
     this.data.categories.push(category);
     this.save();
     return category;
   }
 
-  public updateCategory(id: string, update: Partial<Category>): Category | null {
-    const idx = this.data.categories.findIndex(c => c.id === id);
+  public updateCategory(userId: string, id: string, update: Partial<Category>): Category | null {
+    const idx = this.data.categories.findIndex(c => c.id === id && (!c.isCustom || (c as any).userId === userId));
     if (idx === -1) return null;
     this.data.categories[idx] = { ...this.data.categories[idx], ...update };
     this.save();
     return this.data.categories[idx];
   }
 
-  public deleteCategory(id: string): boolean {
+  public deleteCategory(userId: string, id: string): boolean {
     const originalLength = this.data.categories.length;
-    this.data.categories = this.data.categories.filter(c => c.id !== id);
+    this.data.categories = this.data.categories.filter(c => !(c.id === id && c.isCustom && (c as any).userId === userId));
     this.save();
     return this.data.categories.length < originalLength;
   }
@@ -355,13 +381,13 @@ class Database {
     return tx;
   }
 
-  public updateTransaction(id: string, update: Partial<Transaction>): Transaction | null {
-    const idx = this.data.transactions.findIndex(t => t.id === id);
+  public updateTransaction(userId: string, id: string, update: Partial<Transaction>): Transaction | null {
+    const idx = this.data.transactions.findIndex(t => t.id === id && (t as any).userId === userId);
     if (idx === -1) return null;
     
     const oldTx = this.data.transactions[idx];
     
-    const oldWallet = this.data.wallets.find(w => w.id === oldTx.walletId);
+    const oldWallet = this.data.wallets.find(w => w.id === oldTx.walletId && (w as any).userId === userId);
     if (oldWallet) {
       if (oldTx.type === 'income') {
         oldWallet.balance -= oldTx.amount;
@@ -372,7 +398,7 @@ class Database {
 
     if (oldTx.type === 'expense') {
       const oldBudget = this.data.budgets.find(b => 
-        b.categoryId === oldTx.categoryId || b.categoryId === 'all'
+        (b.categoryId === oldTx.categoryId || b.categoryId === 'all') && (b as any).userId === userId
       );
       if (oldBudget) {
         oldBudget.spent = Math.max(0, oldBudget.spent - oldTx.amount);
@@ -382,7 +408,7 @@ class Database {
     const updatedTx = { ...oldTx, ...update };
     this.data.transactions[idx] = updatedTx;
 
-    const newWallet = this.data.wallets.find(w => w.id === updatedTx.walletId);
+    const newWallet = this.data.wallets.find(w => w.id === updatedTx.walletId && (w as any).userId === userId);
     if (newWallet) {
       if (updatedTx.type === 'income') {
         newWallet.balance += updatedTx.amount;
@@ -393,7 +419,7 @@ class Database {
 
     if (updatedTx.type === 'expense') {
       const newBudget = this.data.budgets.find(b => 
-        b.categoryId === updatedTx.categoryId || b.categoryId === 'all'
+        (b.categoryId === updatedTx.categoryId || b.categoryId === 'all') && (b as any).userId === userId
       );
       if (newBudget) {
         newBudget.spent += updatedTx.amount;
@@ -404,13 +430,13 @@ class Database {
     return updatedTx;
   }
 
-  public deleteTransaction(id: string): boolean {
-    const idx = this.data.transactions.findIndex(t => t.id === id);
+  public deleteTransaction(userId: string, id: string): boolean {
+    const idx = this.data.transactions.findIndex(t => t.id === id && (t as any).userId === userId);
     if (idx === -1) return false;
 
     const tx = this.data.transactions[idx];
 
-    const wallet = this.data.wallets.find(w => w.id === tx.walletId);
+    const wallet = this.data.wallets.find(w => w.id === tx.walletId && (w as any).userId === userId);
     if (wallet) {
       if (tx.type === 'income') {
         wallet.balance -= tx.amount;
@@ -420,7 +446,9 @@ class Database {
     }
 
     if (tx.type === 'expense') {
-      const budget = this.data.budgets.find(b => b.categoryId === tx.categoryId || b.categoryId === 'all');
+      const budget = this.data.budgets.find(b => 
+        (b.categoryId === tx.categoryId || b.categoryId === 'all') && (b as any).userId === userId
+      );
       if (budget) {
         budget.spent = Math.max(0, budget.spent - tx.amount);
       }
@@ -455,9 +483,9 @@ class Database {
     return budget;
   }
 
-  public deleteBudget(id: string): boolean {
+  public deleteBudget(userId: string, id: string): boolean {
     const originalLength = this.data.budgets.length;
-    this.data.budgets = this.data.budgets.filter(b => b.id !== id);
+    this.data.budgets = this.data.budgets.filter(b => !(b.id === id && (b as any).userId === userId));
     this.save();
     return this.data.budgets.length < originalLength;
   }
@@ -475,7 +503,7 @@ class Database {
   }
 
   public updateGoal(userId: string = 'usr-101', id: string, update: Partial<Goal>): Goal | null {
-    const idx = this.data.goals.findIndex(g => g.id === id);
+    const idx = this.data.goals.findIndex(g => g.id === id && (g as any).userId === userId);
     if (idx === -1) return null;
     
     const oldGoal = this.data.goals[idx];
@@ -497,9 +525,9 @@ class Database {
     return updatedGoal;
   }
 
-  public deleteGoal(id: string): boolean {
+  public deleteGoal(userId: string, id: string): boolean {
     const originalLength = this.data.goals.length;
-    this.data.goals = this.data.goals.filter(g => g.id !== id);
+    this.data.goals = this.data.goals.filter(g => !(g.id === id && (g as any).userId === userId));
     this.save();
     return this.data.goals.length < originalLength;
   }
@@ -516,8 +544,8 @@ class Database {
     return notification;
   }
 
-  public markNotificationRead(id: string): boolean {
-    const idx = this.data.notifications.findIndex(n => n.id === id);
+  public markNotificationRead(userId: string, id: string): boolean {
+    const idx = this.data.notifications.findIndex(n => n.id === id && (n as any).userId === userId);
     if (idx === -1) return false;
     this.data.notifications[idx].read = true;
     this.save();
