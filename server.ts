@@ -38,7 +38,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'spendly-default-secret-key-12345';
 
 // Authentication Middleware
 const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const token = req.cookies?.spendly_session;
+  let token = req.cookies?.spendly_session;
+  
+  // Accept Authorization header fallback for iframe environment stability
+  if (!token && req.headers.authorization) {
+    const parts = req.headers.authorization.split(' ');
+    if (parts.length === 2 && parts[0] === 'Bearer') {
+      token = parts[1];
+    }
+  }
   
   if (!token) {
     return res.status(401).json({ error: 'Authentication required. No session token found.' });
@@ -336,7 +344,7 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
         </div>
         <script>
           if (window.opener) {
-            window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS' }, '*');
+            window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', token: '${token}' }, '*');
             setTimeout(function() {
               window.close();
             }, 800);
@@ -601,6 +609,35 @@ app.put('/api/notifications/:id/read', requireAuth, (req, res) => {
 
 app.delete('/api/notifications', requireAuth, (req, res) => {
   db.clearAllNotifications((req as any).user.id);
+  res.json({ success: true });
+});
+
+// 7.5. Recycle Bin Endpoints
+app.get('/api/recycle-bin', requireAuth, (req, res) => {
+  res.json(db.getDeletedItems((req as any).user.id));
+});
+
+app.post('/api/recycle-bin/restore', requireAuth, (req, res) => {
+  const { type, id } = req.body;
+  if (!type || !id) {
+    return res.status(400).json({ error: 'Missing type or id' });
+  }
+  const success = db.restoreItem((req as any).user.id, type, id);
+  if (!success) {
+    return res.status(404).json({ error: 'Item not found or failed to restore' });
+  }
+  res.json({ success: true });
+});
+
+app.delete('/api/recycle-bin/permanent/:type/:id', requireAuth, (req, res) => {
+  const { type, id } = req.params;
+  if (!type || !id) {
+    return res.status(400).json({ error: 'Missing type or id' });
+  }
+  const success = db.permanentlyDeleteItem((req as any).user.id, type, id);
+  if (!success) {
+    return res.status(404).json({ error: 'Item not found or failed to permanently delete' });
+  }
   res.json({ success: true });
 });
 

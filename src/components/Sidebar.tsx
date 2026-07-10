@@ -11,7 +11,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   LogOut,
-  User
+  User,
+  Trash2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DEFAULT_AVATAR } from '../data/defaultData';
@@ -52,7 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
     { id: 'budgets', label: 'Budgets', icon: PieChart },
     { id: 'goals', label: 'Financial Goals', icon: Target },
     { id: 'categories', label: 'Categories', icon: FolderKanban },
-    { id: 'settings', label: 'Settings', icon: Settings }
+    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'recycle-bin', label: 'Recycle Bin', icon: Trash2 }
   ];
 
   const defaultAvatar = DEFAULT_AVATAR;

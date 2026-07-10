@@ -8,10 +8,11 @@ import BudgetsView from './components/BudgetsView';
 import GoalsView from './components/GoalsView';
 import CategoriesView from './components/CategoriesView';
 import SettingsView from './components/SettingsView';
+import RecycleBinView from './components/RecycleBinView';
 import AddTxModal from './components/AddTxModal';
 import OCRModal from './components/OCRModal';
 import BottomNavigation from './components/BottomNavigation';
-import { Loader2, AlertCircle, Trash2, Plus, ArrowRight, Mail, User, ShieldAlert, Sparkles } from 'lucide-react';
+import { Loader2, AlertCircle, Trash2, Plus, ArrowRight, Mail, User, ShieldAlert, Sparkles, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CommandPalette } from './components/CommandPalette';
 import { WelcomeTour } from './components/WelcomeTour';
@@ -104,7 +105,17 @@ function LoginPage() {
 }
 
 function DashboardLayout() {
-  const { activeView, setActiveView, isLoading, error, theme, user } = useApp();
+  const { 
+    activeView, 
+    setActiveView, 
+    isLoading, 
+    error, 
+    theme, 
+    user,
+    undoItem,
+    triggerUndo,
+    dismissUndo
+  } = useApp();
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [addTxOpen, setAddTxOpen] = useState(false);
@@ -308,6 +319,7 @@ function DashboardLayout() {
                   {activeView === 'goals' && <GoalsView />}
                   {activeView === 'categories' && <CategoriesView />}
                   {activeView === 'settings' && <SettingsView />}
+                  {activeView === 'recycle-bin' && <RecycleBinView />}
                 </motion.div>
               </AnimatePresence>
             )}
@@ -363,6 +375,47 @@ function DashboardLayout() {
           isOpen={tourOpen}
           onClose={() => setTourOpen(false)}
         />
+
+        {/* Floating Undo Deletion Toast */}
+        <AnimatePresence>
+          {undoItem && (
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 25 }}
+              className={`fixed bottom-6 right-6 z-50 flex items-center gap-4 px-4 py-3.5 rounded-2xl border shadow-2xl backdrop-blur-xl ${
+                theme === 'light'
+                  ? 'bg-white border-zinc-200 text-zinc-900 shadow-zinc-200/50'
+                  : 'bg-zinc-950/90 border-zinc-800 text-zinc-100 shadow-black/80'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs font-semibold">{undoItem.label}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-bold">
+                  {undoItem.countdown}s
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-800/40 dark:border-zinc-800/80">
+                <button
+                  onClick={triggerUndo}
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw size={12} className="stroke-[2.5]" />
+                  <span>Undo</span>
+                </button>
+                <button
+                  onClick={dismissUndo}
+                  className="p-1.5 hover:bg-zinc-850 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Dismiss</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </motion.div>
 

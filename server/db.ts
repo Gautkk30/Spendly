@@ -277,11 +277,17 @@ class Database {
 
   // Wallets Actions
   public getWallets(userId: string = 'usr-101'): Wallet[] {
-    return this.data.wallets.filter(w => (w as any).userId === userId || (!(w as any).userId && userId === 'usr-101'));
+    return this.data.wallets.filter(w => 
+      ((w as any).userId === userId || (!(w as any).userId && userId === 'usr-101')) && 
+      !w.isDeleted
+    );
   }
 
   public addWallet(userId: string = 'usr-101', wallet: Wallet): Wallet {
     (wallet as any).userId = userId;
+    wallet.createdAt = wallet.createdAt || new Date().toISOString();
+    wallet.updatedAt = new Date().toISOString();
+    wallet.isDeleted = false;
     this.data.wallets.push(wallet);
     this.save();
     return wallet;
@@ -290,26 +296,51 @@ class Database {
   public updateWallet(userId: string, id: string, update: Partial<Wallet>): Wallet | null {
     const idx = this.data.wallets.findIndex(w => w.id === id && (w as any).userId === userId);
     if (idx === -1) return null;
-    this.data.wallets[idx] = { ...this.data.wallets[idx], ...update };
+    this.data.wallets[idx] = { 
+      ...this.data.wallets[idx], 
+      ...update, 
+      updatedAt: new Date().toISOString() 
+    };
     this.save();
     return this.data.wallets[idx];
   }
 
   public deleteWallet(userId: string, id: string): boolean {
-    const originalLength = this.data.wallets.length;
-    this.data.wallets = this.data.wallets.filter(w => !(w.id === id && (w as any).userId === userId));
-    this.data.transactions = this.data.transactions.filter(t => !(t.walletId === id && (t as any).userId === userId));
+    const wallet = this.data.wallets.find(w => w.id === id && (w as any).userId === userId);
+    if (!wallet) return false;
+    
+    wallet.isDeleted = true;
+    wallet.deletedAt = new Date().toISOString();
+    wallet.deletedBy = userId;
+    wallet.updatedAt = new Date().toISOString();
+
+    // Soft delete all transactions belonging to this wallet
+    this.data.transactions.forEach(t => {
+      if (t.walletId === id && (t as any).userId === userId && !t.isDeleted) {
+        t.isDeleted = true;
+        t.deletedAt = wallet.deletedAt;
+        t.deletedBy = userId;
+        t.updatedAt = new Date().toISOString();
+      }
+    });
+
     this.save();
-    return this.data.wallets.length < originalLength;
+    return true;
   }
 
   // Categories Actions
   public getCategories(userId?: string): Category[] {
-    return this.data.categories.filter(c => !c.isCustom || (userId && (c as any).userId === userId));
+    return this.data.categories.filter(c => 
+      (!c.isCustom || (userId && (c as any).userId === userId)) && 
+      !c.isDeleted
+    );
   }
 
   public addCategory(userId: string, category: Category): Category {
     (category as any).userId = userId;
+    category.createdAt = category.createdAt || new Date().toISOString();
+    category.updatedAt = new Date().toISOString();
+    category.isDeleted = false;
     this.data.categories.push(category);
     this.save();
     return category;
@@ -318,25 +349,41 @@ class Database {
   public updateCategory(userId: string, id: string, update: Partial<Category>): Category | null {
     const idx = this.data.categories.findIndex(c => c.id === id && (!c.isCustom || (c as any).userId === userId));
     if (idx === -1) return null;
-    this.data.categories[idx] = { ...this.data.categories[idx], ...update };
+    this.data.categories[idx] = { 
+      ...this.data.categories[idx], 
+      ...update, 
+      updatedAt: new Date().toISOString() 
+    };
     this.save();
     return this.data.categories[idx];
   }
 
   public deleteCategory(userId: string, id: string): boolean {
-    const originalLength = this.data.categories.length;
-    this.data.categories = this.data.categories.filter(c => !(c.id === id && c.isCustom && (c as any).userId === userId));
+    const category = this.data.categories.find(c => c.id === id && c.isCustom && (c as any).userId === userId);
+    if (!category) return false;
+
+    category.isDeleted = true;
+    category.deletedAt = new Date().toISOString();
+    category.deletedBy = userId;
+    category.updatedAt = new Date().toISOString();
+
     this.save();
-    return this.data.categories.length < originalLength;
+    return true;
   }
 
   // Transactions Actions
   public getTransactions(userId: string = 'usr-101'): Transaction[] {
-    return this.data.transactions.filter(t => (t as any).userId === userId || (!(t as any).userId && userId === 'usr-101'));
+    return this.data.transactions.filter(t => 
+      ((t as any).userId === userId || (!(t as any).userId && userId === 'usr-101')) && 
+      !t.isDeleted
+    );
   }
 
   public addTransaction(userId: string = 'usr-101', tx: Transaction): Transaction {
     (tx as any).userId = userId;
+    tx.createdAt = tx.createdAt || new Date().toISOString();
+    tx.updatedAt = new Date().toISOString();
+    tx.isDeleted = false;
     this.data.transactions.unshift(tx);
 
     const wallet = this.data.wallets.find(w => w.id === tx.walletId);
@@ -346,15 +393,18 @@ class Database {
       } else {
         wallet.balance -= tx.amount;
       }
+      wallet.updatedAt = new Date().toISOString();
     }
 
     if (tx.type === 'expense') {
       const budget = this.data.budgets.find(b => 
         (b.categoryId === tx.categoryId || b.categoryId === 'all') &&
-        ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101'))
+        ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101')) &&
+        !b.isDeleted
       );
       if (budget) {
         budget.spent += tx.amount;
+        budget.updatedAt = new Date().toISOString();
         if (budget.spent > budget.amount && budget.spent - tx.amount <= budget.amount) {
           this.addNotification(userId, {
             id: `nt-budget-alert-${Date.now()}`,
@@ -387,42 +437,56 @@ class Database {
     
     const oldTx = this.data.transactions[idx];
     
-    const oldWallet = this.data.wallets.find(w => w.id === oldTx.walletId && (w as any).userId === userId);
-    if (oldWallet) {
-      if (oldTx.type === 'income') {
-        oldWallet.balance -= oldTx.amount;
-      } else {
-        oldWallet.balance += oldTx.amount;
+    // Revert old transaction's impact if it was not already deleted
+    if (!oldTx.isDeleted) {
+      const oldWallet = this.data.wallets.find(w => w.id === oldTx.walletId && (w as any).userId === userId);
+      if (oldWallet) {
+        if (oldTx.type === 'income') {
+          oldWallet.balance -= oldTx.amount;
+        } else {
+          oldWallet.balance += oldTx.amount;
+        }
+        oldWallet.updatedAt = new Date().toISOString();
+      }
+
+      if (oldTx.type === 'expense') {
+        const oldBudget = this.data.budgets.find(b => 
+          (b.categoryId === oldTx.categoryId || b.categoryId === 'all') && (b as any).userId === userId && !b.isDeleted
+        );
+        if (oldBudget) {
+          oldBudget.spent = Math.max(0, oldBudget.spent - oldTx.amount);
+          oldBudget.updatedAt = new Date().toISOString();
+        }
       }
     }
 
-    if (oldTx.type === 'expense') {
-      const oldBudget = this.data.budgets.find(b => 
-        (b.categoryId === oldTx.categoryId || b.categoryId === 'all') && (b as any).userId === userId
-      );
-      if (oldBudget) {
-        oldBudget.spent = Math.max(0, oldBudget.spent - oldTx.amount);
-      }
-    }
-
-    const updatedTx = { ...oldTx, ...update };
+    const updatedTx = { 
+      ...oldTx, 
+      ...update, 
+      updatedAt: new Date().toISOString() 
+    };
     this.data.transactions[idx] = updatedTx;
 
-    const newWallet = this.data.wallets.find(w => w.id === updatedTx.walletId && (w as any).userId === userId);
-    if (newWallet) {
-      if (updatedTx.type === 'income') {
-        newWallet.balance += updatedTx.amount;
-      } else {
-        newWallet.balance -= updatedTx.amount;
+    // Apply new transaction's impact if it is not soft-deleted
+    if (!updatedTx.isDeleted) {
+      const newWallet = this.data.wallets.find(w => w.id === updatedTx.walletId && (w as any).userId === userId);
+      if (newWallet) {
+        if (updatedTx.type === 'income') {
+          newWallet.balance += updatedTx.amount;
+        } else {
+          newWallet.balance -= updatedTx.amount;
+        }
+        newWallet.updatedAt = new Date().toISOString();
       }
-    }
 
-    if (updatedTx.type === 'expense') {
-      const newBudget = this.data.budgets.find(b => 
-        (b.categoryId === updatedTx.categoryId || b.categoryId === 'all') && (b as any).userId === userId
-      );
-      if (newBudget) {
-        newBudget.spent += updatedTx.amount;
+      if (updatedTx.type === 'expense') {
+        const newBudget = this.data.budgets.find(b => 
+          (b.categoryId === updatedTx.categoryId || b.categoryId === 'all') && (b as any).userId === userId && !b.isDeleted
+        );
+        if (newBudget) {
+          newBudget.spent += updatedTx.amount;
+          newBudget.updatedAt = new Date().toISOString();
+        }
       }
     }
 
@@ -431,11 +495,15 @@ class Database {
   }
 
   public deleteTransaction(userId: string, id: string): boolean {
-    const idx = this.data.transactions.findIndex(t => t.id === id && (t as any).userId === userId);
-    if (idx === -1) return false;
+    const tx = this.data.transactions.find(t => t.id === id && (t as any).userId === userId);
+    if (!tx || tx.isDeleted) return false;
 
-    const tx = this.data.transactions[idx];
+    tx.isDeleted = true;
+    tx.deletedAt = new Date().toISOString();
+    tx.deletedBy = userId;
+    tx.updatedAt = new Date().toISOString();
 
+    // Revert balance on delete
     const wallet = this.data.wallets.find(w => w.id === tx.walletId && (w as any).userId === userId);
     if (wallet) {
       if (tx.type === 'income') {
@@ -443,37 +511,51 @@ class Database {
       } else {
         wallet.balance += tx.amount;
       }
+      wallet.updatedAt = new Date().toISOString();
     }
 
+    // Revert budget on delete
     if (tx.type === 'expense') {
       const budget = this.data.budgets.find(b => 
-        (b.categoryId === tx.categoryId || b.categoryId === 'all') && (b as any).userId === userId
+        (b.categoryId === tx.categoryId || b.categoryId === 'all') && (b as any).userId === userId && !b.isDeleted
       );
       if (budget) {
         budget.spent = Math.max(0, budget.spent - tx.amount);
+        budget.updatedAt = new Date().toISOString();
       }
     }
 
-    this.data.transactions.splice(idx, 1);
     this.save();
     return true;
   }
 
   // Budgets Actions
   public getBudgets(userId: string = 'usr-101'): Budget[] {
-    return this.data.budgets.filter(b => (b as any).userId === userId || (!(b as any).userId && userId === 'usr-101'));
+    return this.data.budgets.filter(b => 
+      ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101')) && 
+      !b.isDeleted
+    );
   }
 
   public addBudget(userId: string = 'usr-101', budget: Budget): Budget {
     (budget as any).userId = userId;
+    budget.createdAt = budget.createdAt || new Date().toISOString();
+    budget.updatedAt = new Date().toISOString();
+    budget.isDeleted = false;
+
     const idx = this.data.budgets.findIndex(b => 
       b.categoryId === budget.categoryId && 
       b.month === budget.month && 
       b.year === budget.year &&
-      ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101'))
+      ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101')) &&
+      !b.isDeleted
     );
     if (idx !== -1) {
-      this.data.budgets[idx] = { ...this.data.budgets[idx], amount: budget.amount };
+      this.data.budgets[idx] = { 
+        ...this.data.budgets[idx], 
+        amount: budget.amount,
+        updatedAt: new Date().toISOString() 
+      };
       this.save();
       return this.data.budgets[idx];
     }
@@ -484,19 +566,31 @@ class Database {
   }
 
   public deleteBudget(userId: string, id: string): boolean {
-    const originalLength = this.data.budgets.length;
-    this.data.budgets = this.data.budgets.filter(b => !(b.id === id && (b as any).userId === userId));
+    const budget = this.data.budgets.find(b => b.id === id && (b as any).userId === userId);
+    if (!budget || budget.isDeleted) return false;
+
+    budget.isDeleted = true;
+    budget.deletedAt = new Date().toISOString();
+    budget.deletedBy = userId;
+    budget.updatedAt = new Date().toISOString();
+
     this.save();
-    return this.data.budgets.length < originalLength;
+    return true;
   }
 
   // Goals Actions
   public getGoals(userId: string = 'usr-101'): Goal[] {
-    return this.data.goals.filter(g => (g as any).userId === userId || (!(g as any).userId && userId === 'usr-101'));
+    return this.data.goals.filter(g => 
+      ((g as any).userId === userId || (!(g as any).userId && userId === 'usr-101')) && 
+      !g.isDeleted
+    );
   }
 
   public addGoal(userId: string = 'usr-101', goal: Goal): Goal {
     (goal as any).userId = userId;
+    goal.createdAt = goal.createdAt || new Date().toISOString();
+    goal.updatedAt = new Date().toISOString();
+    goal.isDeleted = false;
     this.data.goals.push(goal);
     this.save();
     return goal;
@@ -507,7 +601,11 @@ class Database {
     if (idx === -1) return null;
     
     const oldGoal = this.data.goals[idx];
-    const updatedGoal = { ...oldGoal, ...update };
+    const updatedGoal = { 
+      ...oldGoal, 
+      ...update, 
+      updatedAt: new Date().toISOString() 
+    };
     
     if (updatedGoal.currentAmount >= updatedGoal.targetAmount && oldGoal.currentAmount < oldGoal.targetAmount) {
       this.addNotification(userId, {
@@ -526,19 +624,31 @@ class Database {
   }
 
   public deleteGoal(userId: string, id: string): boolean {
-    const originalLength = this.data.goals.length;
-    this.data.goals = this.data.goals.filter(g => !(g.id === id && (g as any).userId === userId));
+    const goal = this.data.goals.find(g => g.id === id && (g as any).userId === userId);
+    if (!goal || goal.isDeleted) return false;
+
+    goal.isDeleted = true;
+    goal.deletedAt = new Date().toISOString();
+    goal.deletedBy = userId;
+    goal.updatedAt = new Date().toISOString();
+
     this.save();
-    return this.data.goals.length < originalLength;
+    return true;
   }
 
   // Notifications Actions
   public getNotifications(userId: string = 'usr-101'): Notification[] {
-    return this.data.notifications.filter(n => (n as any).userId === userId || (!(n as any).userId && userId === 'usr-101'));
+    return this.data.notifications.filter(n => 
+      ((n as any).userId === userId || (!(n as any).userId && userId === 'usr-101')) && 
+      !n.isDeleted
+    );
   }
 
   public addNotification(userId: string = 'usr-101', notification: Notification): Notification {
     (notification as any).userId = userId;
+    notification.createdAt = notification.createdAt || new Date().toISOString();
+    notification.updatedAt = new Date().toISOString();
+    notification.isDeleted = false;
     this.data.notifications.unshift(notification);
     this.save();
     return notification;
@@ -548,15 +658,163 @@ class Database {
     const idx = this.data.notifications.findIndex(n => n.id === id && (n as any).userId === userId);
     if (idx === -1) return false;
     this.data.notifications[idx].read = true;
+    this.data.notifications[idx].updatedAt = new Date().toISOString();
     this.save();
     return true;
   }
 
   public clearAllNotifications(userId: string = 'usr-101'): void {
-    this.data.notifications = this.data.notifications.filter(n => 
-      (n as any).userId !== userId && ((n as any).userId || userId !== 'usr-101')
-    );
+    this.data.notifications.forEach(n => {
+      if ((n as any).userId === userId || (!(n as any).userId && userId === 'usr-101')) {
+        n.isDeleted = true;
+        n.deletedAt = new Date().toISOString();
+        n.deletedBy = userId;
+        n.updatedAt = new Date().toISOString();
+      }
+    });
     this.save();
+  }
+
+  // RECYCLE BIN ACTIONS
+  public getDeletedItems(userId: string) {
+    const checkUser = (item: any) => item.userId === userId || (!item.userId && userId === 'usr-101');
+    return {
+      wallets: this.data.wallets.filter(w => checkUser(w) && w.isDeleted),
+      categories: this.data.categories.filter(c => checkUser(c) && c.isDeleted),
+      transactions: this.data.transactions.filter(t => checkUser(t) && t.isDeleted),
+      budgets: this.data.budgets.filter(b => checkUser(b) && b.isDeleted),
+      goals: this.data.goals.filter(g => checkUser(g) && g.isDeleted)
+    };
+  }
+
+  public restoreItem(userId: string, type: string, id: string): boolean {
+    const checkUser = (item: any) => item.userId === userId || (!item.userId && userId === 'usr-101');
+
+    if (type === 'wallets') {
+      const wallet = this.data.wallets.find(w => w.id === id && checkUser(w));
+      if (!wallet) return false;
+      wallet.isDeleted = false;
+      wallet.deletedAt = undefined;
+      wallet.deletedBy = undefined;
+      wallet.updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+
+    if (type === 'categories') {
+      const cat = this.data.categories.find(c => c.id === id && checkUser(c));
+      if (!cat) return false;
+      cat.isDeleted = false;
+      cat.deletedAt = undefined;
+      cat.deletedBy = undefined;
+      cat.updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+
+    if (type === 'transactions') {
+      const tx = this.data.transactions.find(t => t.id === id && checkUser(t));
+      if (!tx) return false;
+      tx.isDeleted = false;
+      tx.deletedAt = undefined;
+      tx.deletedBy = undefined;
+      tx.updatedAt = new Date().toISOString();
+
+      // Re-apply transaction amount to wallet balance
+      const wallet = this.data.wallets.find(w => w.id === tx.walletId && checkUser(w));
+      if (wallet) {
+        if (tx.type === 'income') {
+          wallet.balance += tx.amount;
+        } else {
+          wallet.balance -= tx.amount;
+        }
+        wallet.updatedAt = new Date().toISOString();
+      }
+
+      // Re-apply amount to budget spent
+      if (tx.type === 'expense') {
+        const budget = this.data.budgets.find(b => 
+          (b.categoryId === tx.categoryId || b.categoryId === 'all') && checkUser(b) && !b.isDeleted
+        );
+        if (budget) {
+          budget.spent += tx.amount;
+          budget.updatedAt = new Date().toISOString();
+        }
+      }
+
+      this.save();
+      return true;
+    }
+
+    if (type === 'budgets') {
+      const budget = this.data.budgets.find(b => b.id === id && checkUser(b));
+      if (!budget) return false;
+      budget.isDeleted = false;
+      budget.deletedAt = undefined;
+      budget.deletedBy = undefined;
+      budget.updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+
+    if (type === 'goals') {
+      const goal = this.data.goals.find(g => g.id === id && checkUser(g));
+      if (!goal) return false;
+      goal.isDeleted = false;
+      goal.deletedAt = undefined;
+      goal.deletedBy = undefined;
+      goal.updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+
+    return false;
+  }
+
+  public permanentlyDeleteItem(userId: string, type: string, id: string): boolean {
+    const checkUser = (item: any) => item.userId === userId || (!item.userId && userId === 'usr-101');
+
+    if (type === 'wallets') {
+      const idx = this.data.wallets.findIndex(w => w.id === id && checkUser(w) && w.isDeleted);
+      if (idx === -1) return false;
+      this.data.wallets.splice(idx, 1);
+      this.save();
+      return true;
+    }
+
+    if (type === 'categories') {
+      const idx = this.data.categories.findIndex(c => c.id === id && checkUser(c) && c.isDeleted);
+      if (idx === -1) return false;
+      this.data.categories.splice(idx, 1);
+      this.save();
+      return true;
+    }
+
+    if (type === 'transactions') {
+      const idx = this.data.transactions.findIndex(t => t.id === id && checkUser(t) && t.isDeleted);
+      if (idx === -1) return false;
+      this.data.transactions.splice(idx, 1);
+      this.save();
+      return true;
+    }
+
+    if (type === 'budgets') {
+      const idx = this.data.budgets.findIndex(b => b.id === id && checkUser(b) && b.isDeleted);
+      if (idx === -1) return false;
+      this.data.budgets.splice(idx, 1);
+      this.save();
+      return true;
+    }
+
+    if (type === 'goals') {
+      const idx = this.data.goals.findIndex(g => g.id === id && checkUser(g) && g.isDeleted);
+      if (idx === -1) return false;
+      this.data.goals.splice(idx, 1);
+      this.save();
+      return true;
+    }
+
+    return false;
   }
 
   public restoreUserData(userId: string, payload: {
@@ -588,7 +846,7 @@ class Database {
       this.data.wallets.push(w);
     });
 
-    // 3. Overwrite categories (some can be custom categories, let's just make sure we don't duplicate custom categories in this.data.categories)
+    // 3. Overwrite categories
     payload.categories.forEach(c => {
       if (c.isCustom) {
         if (!this.data.categories.some(existingCat => existingCat.id === c.id)) {

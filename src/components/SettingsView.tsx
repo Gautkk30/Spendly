@@ -283,7 +283,7 @@ export const SettingsView: React.FC = () => {
               <div className="flex items-center gap-5 p-4 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20">
                 <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                   <img 
-                    src={avatar || PRESET_AVATARS[0]} 
+                    src={avatar || DEFAULT_AVATAR} 
                     alt="User avatar" 
                     className="h-14 w-14 rounded-xl object-cover ring-2 ring-emerald-500/20 dark:ring-zinc-800 group-hover:opacity-75 transition-all"
                   />

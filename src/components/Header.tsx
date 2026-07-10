@@ -11,7 +11,8 @@ import {
   Trash2,
   AlertTriangle,
   Info,
-  CalendarCheck
+  CalendarCheck,
+  Loader2
 } from 'lucide-react';
 import { CURRENCIES } from '../data/defaultData';
 import { CurrencyCode } from '../types';
@@ -36,7 +37,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
     activeView,
     setActiveView,
     appName,
-    appLogo
+    appLogo,
+    isSaving,
+    isOffline
   } = useApp();
 
   const [notifOpen, setNotifOpen] = useState(false);
@@ -110,6 +113,50 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
               : 'bg-zinc-900/60 hover:bg-zinc-900 focus:bg-zinc-900 text-zinc-100 placeholder-zinc-500 border-zinc-800/80 focus:border-zinc-700 focus:ring-zinc-700'
           }`}
         />
+      </div>
+
+      {/* Saving and Connection Indicators */}
+      <div className="flex items-center gap-3">
+        {/* Connection status */}
+        {isOffline ? (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] font-bold tracking-wider uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+            <span>Offline</span>
+          </div>
+        ) : (
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 text-[10px] font-bold tracking-wider uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Online</span>
+          </div>
+        )}
+
+        {/* Cloud saving status */}
+        <AnimatePresence mode="wait">
+          {isSaving === 'saving' && (
+            <motion.div
+              key="saving"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex items-center gap-1 text-[10px] font-semibold text-zinc-500 uppercase tracking-widest"
+            >
+              <Loader2 size={10} className="animate-spin text-emerald-500" />
+              <span>Saving...</span>
+            </motion.div>
+          )}
+          {isSaving === 'saved' && (
+            <motion.div
+              key="saved"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 uppercase tracking-widest"
+            >
+              <Check size={10} className="stroke-[3.5]" />
+              <span>Saved</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Right Control Actions */}

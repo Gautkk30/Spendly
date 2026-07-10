@@ -16,6 +16,12 @@ export interface Category {
   color: string; // hex or tailwind class
   type: CategoryType;
   isCustom?: boolean;
+  userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 export type WalletType = 'cash' | 'bank' | 'card';
@@ -27,6 +33,11 @@ export interface Wallet {
   type: WalletType;
   currency: CurrencyCode;
   userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 export interface Transaction {
@@ -44,6 +55,11 @@ export interface Transaction {
   receiptUrl?: string;
   ocrExtracted?: boolean;
   userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 export interface Budget {
@@ -55,6 +71,11 @@ export interface Budget {
   month: number; // 1-12
   year: number;
   userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 export interface Goal {
@@ -65,6 +86,11 @@ export interface Goal {
   category: 'vacation' | 'emergency' | 'laptop' | 'bike' | 'house' | 'savings';
   deadline: string; // YYYY-MM-DD
   userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 export interface Notification {
@@ -75,6 +101,11 @@ export interface Notification {
   timestamp: string;
   read: boolean;
   userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 export interface UserProfile {
