@@ -122,4 +122,12 @@ export interface UserProfile {
   createdAt?: string;
   lastLogin?: string;
   googleId?: string;
+  notificationPreferences?: {
+    emailDigest: boolean;
+    soundTriggers: boolean;
+    budgetThreshold: string;
+    goalMilestones: boolean;
+  };
+  dashboardPreferences?: Record<string, any>;
+  appearanceSettings?: Record<string, any>;
 }

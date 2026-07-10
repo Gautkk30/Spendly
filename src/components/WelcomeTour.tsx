@@ -20,7 +20,7 @@ interface WelcomeTourProps {
 }
 
 export const WelcomeTour: React.FC<WelcomeTourProps> = ({ isOpen, onClose }) => {
-  const { theme, setActiveView } = useApp();
+  const { theme, setActiveView, appName } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
 
   const isLight = theme === 'light';
@@ -33,8 +33,8 @@ export const WelcomeTour: React.FC<WelcomeTourProps> = ({ isOpen, onClose }) => 
 
   const tourSteps = [
     {
-      title: 'Welcome to Spendly 🚀',
-      description: 'Spendly is a high-performance, secure, multi-user wealth and ledger auditing suite. Let’s take a 60-second tour to master your workflow and unlock optimal SaaS bookkeeping productivity.',
+      title: `Welcome to ${appName || 'Spendly'} 🚀`,
+      description: `${appName || 'Spendly'} is a high-performance, secure, multi-user wealth and ledger auditing suite. Let’s take a 60-second tour to master your workflow and unlock optimal SaaS bookkeeping productivity.`,
       icon: Compass,
       color: 'text-emerald-500 bg-emerald-500/5 border-emerald-500/10',
       action: () => {}

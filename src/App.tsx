@@ -74,7 +74,7 @@ function LoginPage() {
         {/* Clean, Premium Sign-in Block */}
         <div className="bg-zinc-900/40 border border-zinc-850/80 p-8 rounded-3xl backdrop-blur-xl shadow-2xl space-y-6 text-center">
           <div className="space-y-2">
-            <h2 className="text-lg font-bold text-zinc-100">Welcome to Spendly</h2>
+            <h2 className="text-lg font-bold text-zinc-100">Welcome to {appName || 'Spendly'}</h2>
             <p className="text-xs text-zinc-400 leading-relaxed max-w-xs mx-auto">
               Please sign in with your Google account to access your personal workspace, transaction ledgers, and intelligent insights.
             </p>

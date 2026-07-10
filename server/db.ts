@@ -35,6 +35,19 @@ interface DatabaseSchema {
     appName: string;
     appLogo: string;
   };
+  appSettings?: {
+    _id: string;
+    applicationName: string;
+    logoUrl: string;
+    faviconUrl: string;
+    tagline?: string;
+    brandColors?: {
+      primary: string;
+      secondary: string;
+    };
+    updatedAt: string;
+    updatedBy: string;
+  };
 }
 
 class Database {
@@ -54,6 +67,24 @@ class Database {
         }
         if (!parsed.appConfig) {
           parsed.appConfig = { appName: 'Spendly', appLogo: '' };
+        }
+
+        // Ensure user roles are correctly set
+        if (parsed.user) {
+          if (parsed.user.email?.toLowerCase() === 'gauthamkk30@gmail.com') {
+            parsed.user.role = 'admin';
+          } else if (!parsed.user.role) {
+            parsed.user.role = 'user';
+          }
+        }
+        if (parsed.users) {
+          parsed.users.forEach((u: any) => {
+            if (u.email?.toLowerCase() === 'gauthamkk30@gmail.com') {
+              u.role = 'admin';
+            } else if (!u.role) {
+              u.role = 'user';
+            }
+          });
         }
         
         // Purge legacy mock items to make sure every user starts at exactly ZERO stats

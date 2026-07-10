@@ -3,6 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { db } from './server/db';
+import { AppSettings } from './server/mongodb';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
@@ -64,7 +65,13 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
 // Admin Middleware
 const requireAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   requireAuth(req, res, () => {
-    if ((req as any).user?.role === 'admin') {
+    const user = db.getUser((req as any).user?.id);
+    if (
+      (req as any).user?.role === 'admin' || 
+      user?.role === 'admin' || 
+      user?.email?.toLowerCase() === 'gauthamkk30@gmail.com' ||
+      (req as any).user?.email?.toLowerCase() === 'gauthamkk30@gmail.com'
+    ) {
       next();
     } else {
       res.status(403).json({ error: 'Forbidden. Admin access required.' });
@@ -378,17 +385,66 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 // ==========================================
 
 // Brand Customization Config Endpoints (Public GET, Protected Admin PUT)
-app.get('/api/config', (req, res) => {
-  res.json(db.getAppConfig());
+app.get('/api/config', async (req, res) => {
+  try {
+    const config = await AppSettings.findOne();
+    res.json({
+      appName: config?.applicationName || 'Spendly',
+      appLogo: config?.logoUrl || '',
+      appFavicon: config?.faviconUrl || '',
+      applicationName: config?.applicationName || 'Spendly',
+      logoUrl: config?.logoUrl || '',
+      faviconUrl: config?.faviconUrl || '',
+      tagline: config?.tagline || 'Smarter Wealth & Ledger Auditing Suite',
+      brandColors: config?.brandColors || { primary: '#09090b', secondary: '#27272a' },
+      updatedAt: config?.updatedAt,
+      updatedBy: config?.updatedBy
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put('/api/config', requireAdmin, (req, res) => {
-  const { appName, appLogo } = req.body;
-  if (!appName) {
-    return res.status(400).json({ error: 'appName is required' });
+app.put('/api/config', requireAdmin, async (req, res) => {
+  try {
+    const { appName, appLogo, appFavicon, applicationName, logoUrl, faviconUrl, tagline, brandColors } = req.body;
+    const name = appName || applicationName;
+    const logo = appLogo || logoUrl || '';
+    const favicon = appFavicon || faviconUrl || logo;
+
+    if (!name) {
+      return res.status(400).json({ error: 'appName or applicationName is required' });
+    }
+
+    const updatedBy = (req as any).user?.email || 'admin';
+    await AppSettings.updateOne({}, {
+      $set: {
+        applicationName: name.trim(),
+        logoUrl: logo.trim(),
+        faviconUrl: favicon.trim(),
+        tagline: tagline ? tagline.trim() : undefined,
+        brandColors: brandColors || undefined,
+        updatedAt: new Date().toISOString(),
+        updatedBy: updatedBy
+      }
+    }, { upsert: true });
+
+    const config = await AppSettings.findOne();
+    res.json({
+      appName: config?.applicationName || 'Spendly',
+      appLogo: config?.logoUrl || '',
+      appFavicon: config?.faviconUrl || '',
+      applicationName: config?.applicationName || 'Spendly',
+      logoUrl: config?.logoUrl || '',
+      faviconUrl: config?.faviconUrl || '',
+      tagline: config?.tagline || 'Smarter Wealth & Ledger Auditing Suite',
+      brandColors: config?.brandColors || { primary: '#09090b', secondary: '#27272a' },
+      updatedAt: config?.updatedAt,
+      updatedBy: config?.updatedBy
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
-  const updated = db.updateAppConfig({ appName, appLogo: appLogo || '' });
-  res.json(updated);
 });
 
 // Restore User Data Endpoint

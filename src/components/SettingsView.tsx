@@ -54,6 +54,9 @@ export const SettingsView: React.FC = () => {
     setCurrency,
     appName,
     appLogo,
+    appFavicon,
+    tagline,
+    brandColors,
     updateAppConfig,
     logout
   } = useApp();
@@ -66,6 +69,10 @@ export const SettingsView: React.FC = () => {
   // Custom Branding local state
   const [localAppName, setLocalAppName] = useState('Spendly');
   const [localAppLogo, setLocalAppLogo] = useState('');
+  const [localAppFavicon, setLocalAppFavicon] = useState('');
+  const [localTagline, setLocalTagline] = useState('');
+  const [localPrimaryColor, setLocalPrimaryColor] = useState('#09090b');
+  const [localSecondaryColor, setLocalSecondaryColor] = useState('#27272a');
   const [brandingSuccess, setBrandingSuccess] = useState(false);
   
   // Profile picture base64 state
@@ -104,13 +111,26 @@ export const SettingsView: React.FC = () => {
       setEmail(user.email);
       setNotificationsEnabled(user.notificationsEnabled);
       setAvatar(user.avatarUrl || '');
+      if (user.notificationPreferences) {
+        setEmailDigest(user.notificationPreferences.emailDigest ?? true);
+        setSoundTriggers(user.notificationPreferences.soundTriggers ?? false);
+        setBudgetThreshold(user.notificationPreferences.budgetThreshold ?? '80');
+        setGoalMilestones(user.notificationPreferences.goalMilestones ?? true);
+      }
+      if (user.appearanceSettings) {
+        setStartupPin(user.appearanceSettings.startupPin ?? false);
+      }
     }
   }, [user]);
 
   useEffect(() => {
     setLocalAppName(appName);
     setLocalAppLogo(appLogo);
-  }, [appName, appLogo]);
+    setLocalAppFavicon(appFavicon || appLogo);
+    setLocalTagline(tagline || 'Smarter Wealth & Ledger Auditing Suite');
+    setLocalPrimaryColor(brandColors?.primary || '#09090b');
+    setLocalSecondaryColor(brandColors?.secondary || '#27272a');
+  }, [appName, appLogo, appFavicon, tagline, brandColors]);
 
   // Profile Picture File Upload Handler
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,9 +176,39 @@ export const SettingsView: React.FC = () => {
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
+  const handleSaveNotifications = async () => {
+    await updateUser({
+      notificationPreferences: {
+        emailDigest,
+        soundTriggers,
+        budgetThreshold,
+        goalMilestones
+      }
+    });
+    setNotifSuccess(true);
+    setTimeout(() => setNotifSuccess(false), 3000);
+  };
+
+  const handleSaveSecurity = async () => {
+    await updateUser({
+      appearanceSettings: {
+        ...(user?.appearanceSettings || {}),
+        startupPin
+      }
+    });
+    setSecuritySuccess(true);
+    setTimeout(() => setSecuritySuccess(false), 3000);
+  };
+
   const handleSaveBranding = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateAppConfig(localAppName.trim(), localAppLogo);
+    await updateAppConfig(
+      localAppName.trim(), 
+      localAppLogo, 
+      localAppFavicon, 
+      localTagline.trim(), 
+      { primary: localPrimaryColor, secondary: localSecondaryColor }
+    );
     setBrandingSuccess(true);
     setTimeout(() => setBrandingSuccess(false), 3000);
   };
@@ -440,7 +490,7 @@ export const SettingsView: React.FC = () => {
 
               <form onSubmit={handleSaveBranding} className="space-y-5">
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Application Branded Name</label>
                     <input 
@@ -461,6 +511,68 @@ export const SettingsView: React.FC = () => {
                       placeholder="e.g. Image URL or Base64 String"
                       className={inputStyle}
                     />
+                  </div>
+
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>SaaS Web App Favicon URL</label>
+                    <input 
+                      type="text" 
+                      value={localAppFavicon}
+                      onChange={(e) => setLocalAppFavicon(e.target.value)}
+                      placeholder="e.g. Browser Tab Favicon URL"
+                      className={inputStyle}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Application Tagline</label>
+                    <input 
+                      type="text" 
+                      value={localTagline}
+                      onChange={(e) => setLocalTagline(e.target.value)}
+                      placeholder="e.g. Smarter Wealth & Ledger Auditing Suite"
+                      className={inputStyle}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Primary Color</label>
+                      <div className="flex gap-1.5 items-center">
+                        <input 
+                          type="color" 
+                          value={localPrimaryColor}
+                          onChange={(e) => setLocalPrimaryColor(e.target.value)}
+                          className="h-8 w-8 rounded cursor-pointer border border-zinc-800/20 dark:border-zinc-800 bg-transparent p-0"
+                        />
+                        <input 
+                          type="text" 
+                          value={localPrimaryColor}
+                          onChange={(e) => setLocalPrimaryColor(e.target.value)}
+                          className={`${inputStyle} h-8 py-0 px-2 text-[10px] font-mono`}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Secondary Color</label>
+                      <div className="flex gap-1.5 items-center">
+                        <input 
+                          type="color" 
+                          value={localSecondaryColor}
+                          onChange={(e) => setLocalSecondaryColor(e.target.value)}
+                          className="h-8 w-8 rounded cursor-pointer border border-zinc-800/20 dark:border-zinc-800 bg-transparent p-0"
+                        />
+                        <input 
+                          type="text" 
+                          value={localSecondaryColor}
+                          onChange={(e) => setLocalSecondaryColor(e.target.value)}
+                          className={`${inputStyle} h-8 py-0 px-2 text-[10px] font-mono`}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -617,10 +729,7 @@ export const SettingsView: React.FC = () => {
 
                 <div className="flex justify-end pt-2 border-t border-zinc-800/10 dark:border-zinc-800/40">
                   <button
-                    onClick={() => {
-                      setNotifSuccess(true);
-                      setTimeout(() => setNotifSuccess(false), 3000);
-                    }}
+                    onClick={handleSaveNotifications}
                     className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 ${
                       isLight
                         ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
@@ -750,10 +859,7 @@ export const SettingsView: React.FC = () => {
 
                 <div className="flex justify-end pt-2 border-t border-zinc-800/10 dark:border-zinc-800/40">
                   <button
-                    onClick={() => {
-                      setSecuritySuccess(true);
-                      setTimeout(() => setSecuritySuccess(false), 3000);
-                    }}
+                    onClick={handleSaveSecurity}
                     className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 ${
                       isLight
                         ? 'bg-zinc-900 hover:bg-zinc-800 text-white'

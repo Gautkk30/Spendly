@@ -42,7 +42,10 @@ interface AppContextType {
   // Branding, config & login actions
   appName: string;
   appLogo: string;
-  updateAppConfig: (appName: string, appLogo: string) => Promise<void>;
+  appFavicon: string;
+  tagline: string;
+  brandColors: { primary: string; secondary: string };
+  updateAppConfig: (appName: string, appLogo: string, appFavicon?: string, tagline?: string, brandColors?: { primary: string; secondary: string }) => Promise<void>;
   login: () => Promise<void>;
   logout: () => void;
   
@@ -87,6 +90,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   const [appName, setAppName] = useState<string>('Spendly');
   const [appLogo, setAppLogo] = useState<string>('');
+  const [appFavicon, setAppFavicon] = useState<string>('');
+  const [tagline, setTagline] = useState<string>('Smarter Wealth & Ledger Auditing Suite');
+  const [brandColors, setBrandColors] = useState<{ primary: string; secondary: string }>({ primary: '#09090b', secondary: '#27272a' });
 
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -140,6 +146,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return headers;
   };
 
+  const applyBranding = (name: string, logo: string, favicon?: string) => {
+    const finalName = name || 'Spendly';
+    document.title = finalName;
+    const finalFavicon = favicon || logo;
+    if (finalFavicon) {
+      const links = document.querySelectorAll("link[rel*='icon']");
+      if (links.length > 0) {
+        links.forEach(l => {
+          (l as HTMLLinkElement).href = finalFavicon;
+        });
+      } else {
+        const link = document.createElement('link');
+        link.rel = 'icon';
+        link.type = 'image/png';
+        link.href = finalFavicon;
+        document.head.appendChild(link);
+      }
+    }
+  };
+
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
@@ -147,8 +173,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 1. Fetch app branding configurations first
       try {
         const configRes = await fetch('/api/config', { headers: getHeaders() }).then(r => r.json());
-        setAppName(configRes.appName || 'Spendly');
-        setAppLogo(configRes.appLogo || '');
+        const finalName = configRes.applicationName || configRes.appName || 'Spendly';
+        const finalLogo = configRes.logoUrl || configRes.appLogo || '';
+        const finalFavicon = configRes.faviconUrl || configRes.appFavicon || '';
+        const finalTagline = configRes.tagline || 'Smarter Wealth & Ledger Auditing Suite';
+        const finalBrandColors = configRes.brandColors || { primary: '#09090b', secondary: '#27272a' };
+        setAppName(finalName);
+        setAppLogo(finalLogo);
+        setAppFavicon(finalFavicon);
+        setTagline(finalTagline);
+        setBrandColors(finalBrandColors);
+        applyBranding(finalName, finalLogo, finalFavicon);
       } catch (e) {
         console.error('Failed to fetch app branding configuration:', e);
       }
@@ -168,7 +203,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
       const meUser = await meRes.json();
-      setUser({ ...meUser, defaultCurrency: 'INR' });
+      setUser({ ...meUser, defaultCurrency: meUser.defaultCurrency || 'INR' });
 
       // 3. Fetch private ledger data using custom auth header
       const [walletsRes, categoriesRes, txRes, budgetsRes, goalsRes, notifRes] = await Promise.all([
@@ -235,7 +270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (meUser.theme) {
         setThemeState(meUser.theme);
       }
-      setCurrencyState('INR'); // Lock to INR
+      setCurrencyState(meUser.defaultCurrency || 'INR');
     } catch (err: any) {
       console.error('Failed to fetch data from API:', err);
       setError('Connection to backend failed. Please check if the dev server is fully loaded.');
@@ -263,19 +298,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  const updateAppConfig = async (newAppName: string, newAppLogo: string) => {
+  const updateAppConfig = async (newAppName: string, newAppLogo: string, newAppFavicon?: string, newTagline?: string, newBrandColors?: { primary: string; secondary: string }) => {
     try {
       const res = await fetch('/api/config', {
         method: 'PUT',
         headers: getHeaders(),
-        body: JSON.stringify({ appName: newAppName, appLogo: newAppLogo })
+        body: JSON.stringify({ 
+          applicationName: newAppName, 
+          logoUrl: newAppLogo, 
+          faviconUrl: newAppFavicon || newAppLogo,
+          tagline: newTagline,
+          brandColors: newBrandColors
+        })
       });
       const data = await res.json();
-      setAppName(data.appName || 'Spendly');
-      setAppLogo(data.appLogo || '');
+      const finalName = data.applicationName || data.appName || 'Spendly';
+      const finalLogo = data.logoUrl || data.appLogo || '';
+      const finalFavicon = data.faviconUrl || data.appFavicon || '';
+      const finalTagline = data.tagline || 'Smarter Wealth & Ledger Auditing Suite';
+      const finalBrandColors = data.brandColors || { primary: '#09090b', secondary: '#27272a' };
+      setAppName(finalName);
+      setAppLogo(finalLogo);
+      setAppFavicon(finalFavicon);
+      setTagline(finalTagline);
+      setBrandColors(finalBrandColors);
       
-      // Update browser tab title dynamically
-      document.title = data.appName || 'Spendly';
+      // Update browser tab title and favicon dynamically
+      applyBranding(finalName, finalLogo, finalFavicon);
     } catch (e) {
       console.error('Error updating app config:', e);
     }
@@ -711,6 +760,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       appName,
       appLogo,
+      appFavicon,
+      tagline,
+      brandColors,
       updateAppConfig,
       login,
       logout,

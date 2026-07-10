@@ -45,7 +45,8 @@ export const RecycleBinView: React.FC = () => {
     getDeletedItems, 
     restoreItem, 
     permanentlyDeleteItem, 
-    theme 
+    theme,
+    appName
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'all' | 'transactions' | 'wallets' | 'categories' | 'budgets' | 'goals'>('all');
@@ -141,7 +142,7 @@ export const RecycleBinView: React.FC = () => {
         <Info size={16} className="mt-0.5 shrink-0 text-amber-500" />
         <div className="text-[11px] leading-relaxed">
           <strong className="font-semibold block mb-0.5">Permanent Retention Fallback Notice</strong>
-          Spendly utilizes high-integrity soft delete layers. If you accidentally delete a balance ledger, card tracker, category schema, or saving goal, it goes into this secure sandboxed zone. Items here can be restored with 100% relational integrity.
+          {appName || 'Spendly'} utilizes high-integrity soft delete layers. If you accidentally delete a balance ledger, card tracker, category schema, or saving goal, it goes into this secure sandboxed zone. Items here can be restored with 100% relational integrity.
         </div>
       </motion.div>
 
@@ -449,6 +450,7 @@ export const RecycleBinView: React.FC = () => {
           (activeTab === 'goals' && goalCount === 0)) && (
             <div className="py-12">
               <EmptyState 
+                icon={Trash2}
                 title="Recycle Bin is empty" 
                 description={`No soft-deleted ${activeTab === 'all' ? 'ledgers' : activeTab} were discovered inside your secure sandbox ledger.`} 
               />

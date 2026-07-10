@@ -87,7 +87,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
     addTransaction,
     theme,
     user,
-    budgets
+    budgets,
+    appName
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'daily' | 'analytics'>('daily');
@@ -1019,7 +1020,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
               <div className="h-10 w-10 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
                 <Sparkles size={18} />
               </div>
-              <h4 className={`font-bold text-sm ${titleStyle}`}>Spendly Smarter Tracker</h4>
+              <h4 className={`font-bold text-sm ${titleStyle}`}>{appName || 'Spendly'} Smarter Tracker</h4>
               <p className={`text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed`}>
                 To maintain a perfectly balanced budget, ensure that your monthly outgoings never exceed 70% of your total credited income.
               </p>

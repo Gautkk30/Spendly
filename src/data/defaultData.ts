@@ -39,7 +39,8 @@ export const INITIAL_USER: UserProfile = {
   language: 'en',
   theme: 'dark',
   notificationsEnabled: true,
-  emailVerified: true
+  emailVerified: true,
+  role: 'admin'
 };
 
 export const INITIAL_WALLETS: Wallet[] = [
