@@ -802,6 +802,9 @@ app.post('/api/ocr', requireAuth, async (req, res) => {
 // ==========================================
 
 async function start() {
+  // Connect to database (MongoDB Atlas or Dev Fallback) before booting server
+  await db.connect();
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

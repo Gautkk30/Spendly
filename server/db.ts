@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { MongoClient, Db } from 'mongodb';
 import { 
   DEFAULT_CATEGORIES, 
   INITIAL_USER, 
@@ -52,12 +53,66 @@ interface DatabaseSchema {
 
 class Database {
   private data: DatabaseSchema;
+  private client: MongoClient | null = null;
+  private mongoDb: Db | null = null;
 
   constructor() {
-    this.data = this.load();
+    // Start with a safe default so memory access is immediately valid before connect() finishes
+    this.data = {
+      user: INITIAL_USER,
+      users: [INITIAL_USER],
+      wallets: INITIAL_WALLETS,
+      categories: DEFAULT_CATEGORIES,
+      transactions: INITIAL_TRANSACTIONS,
+      budgets: INITIAL_BUDGETS,
+      goals: INITIAL_GOALS,
+      notifications: INITIAL_NOTIFICATIONS,
+      appConfig: {
+        appName: 'Spendly',
+        appLogo: ''
+      }
+    };
   }
 
-  private load(): DatabaseSchema {
+  public async connect(): Promise<void> {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const uri = process.env.MONGODB_URI;
+
+    if (!uri) {
+      if (isProduction) {
+        console.error('FATAL ERROR: MONGODB_URI is not set in production. MongoDB Atlas is required for production persistence.');
+        process.exit(1);
+      } else {
+        console.log('[Spendly] MONGODB_URI is not configured. Falling back to local db.json mock database for development.');
+        this.data = this.loadLocal();
+        return;
+      }
+    }
+
+    try {
+      console.log('[Spendly] Connecting to MongoDB Atlas...');
+      this.client = new MongoClient(uri, {
+        serverSelectionTimeoutMS: 5000,
+      });
+      await this.client.connect();
+      this.mongoDb = this.client.db('spendly');
+      console.log('[Spendly] Successfully connected to MongoDB database "spendly".');
+
+      // Load data from MongoDB
+      await this.loadFromMongo();
+    } catch (err: any) {
+      console.error('[Spendly] Failed to connect to MongoDB:', err);
+      if (isProduction) {
+        console.error('FATAL ERROR: Production requires a persistent MongoDB Atlas connection. Exiting...');
+        process.exit(1);
+      } else {
+        console.log('[Spendly] Reverting to local db.json mock database for local development.');
+        this.data = this.loadLocal();
+      }
+    }
+  }
+
+  private loadLocal(): DatabaseSchema {
     try {
       if (fs.existsSync(DB_PATH)) {
         const fileContent = fs.readFileSync(DB_PATH, 'utf-8');
@@ -150,6 +205,199 @@ class Database {
     return defaultDB;
   }
 
+  private async loadFromMongo(): Promise<void> {
+    if (!this.mongoDb) return;
+
+    const collections = {
+      users: this.mongoDb.collection('users'),
+      wallets: this.mongoDb.collection('wallets'),
+      categories: this.mongoDb.collection('categories'),
+      transactions: this.mongoDb.collection('transactions'),
+      budgets: this.mongoDb.collection('budgets'),
+      goals: this.mongoDb.collection('goals'),
+      notifications: this.mongoDb.collection('notifications'),
+      appConfig: this.mongoDb.collection('appConfig'),
+      appSettings: this.mongoDb.collection('appSettings'),
+      globals: this.mongoDb.collection('globals'),
+    };
+
+    const users = await collections.users.find({}).toArray();
+    const wallets = await collections.wallets.find({}).toArray();
+    const categories = await collections.categories.find({}).toArray();
+    const transactions = await collections.transactions.find({}).toArray();
+    const budgets = await collections.budgets.find({}).toArray();
+    const goals = await collections.goals.find({}).toArray();
+    const notifications = await collections.notifications.find({}).toArray();
+
+    const appConfigDoc = await collections.appConfig.findOne({ _id: 'app_config' as any });
+    const appSettingsDoc = await collections.appSettings.findOne({});
+    const fallbackUserDoc = await collections.globals.findOne({ _id: 'fallback_user' as any });
+
+    const cleanItems = (items: any[]) => items.map(item => {
+      const { _id, ...rest } = item;
+      return rest;
+    });
+
+    const parsedUsers = cleanItems(users) as UserProfile[];
+    const parsedWallets = cleanItems(wallets) as Wallet[];
+    const parsedCategories = cleanItems(categories) as Category[];
+    const parsedTransactions = cleanItems(transactions) as Transaction[];
+    const parsedBudgets = cleanItems(budgets) as Budget[];
+    const parsedGoals = cleanItems(goals) as Goal[];
+    const parsedNotifications = cleanItems(notifications) as Notification[];
+
+    if (parsedUsers.length === 0) {
+      console.log('[Spendly] No database records found in MongoDB. Seeding initial data...');
+      const seedData: DatabaseSchema = {
+        user: INITIAL_USER,
+        users: [INITIAL_USER],
+        wallets: INITIAL_WALLETS,
+        categories: DEFAULT_CATEGORIES,
+        transactions: INITIAL_TRANSACTIONS,
+        budgets: INITIAL_BUDGETS,
+        goals: INITIAL_GOALS,
+        notifications: INITIAL_NOTIFICATIONS,
+        appConfig: {
+          appName: 'Spendly',
+          appLogo: ''
+        },
+        appSettings: {
+          _id: '64b1f893f0b2a5c1a8d01234',
+          applicationName: 'Spendly',
+          logoUrl: '',
+          faviconUrl: '',
+          tagline: 'Smarter Wealth & Ledger Auditing Suite',
+          brandColors: {
+            primary: '#09090b',
+            secondary: '#27272a'
+          },
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'system'
+        }
+      };
+
+      // Set roles and do legacy mock-purge as standard
+      seedData.users!.forEach(u => {
+        if (u.email?.toLowerCase() === 'gauthamkk30@gmail.com') {
+          u.role = 'admin';
+        } else if (!u.role) {
+          u.role = 'user';
+        }
+      });
+      if (seedData.user.email?.toLowerCase() === 'gauthamkk30@gmail.com') {
+        seedData.user.role = 'admin';
+      }
+
+      const mockTxIds = ['tx-1', 'tx-2', 'tx-3', 'tx-4', 'tx-5', 'tx-6', 'tx-7', 'tx-8', 'tx-9'];
+      seedData.transactions = seedData.transactions.filter((tx: any) => !mockTxIds.includes(tx.id));
+      const mockBudgetIds = ['b-1', 'b-2', 'b-3', 'b-4'];
+      seedData.budgets = seedData.budgets.filter((b: any) => !mockBudgetIds.includes(b.id));
+      const mockGoalIds = ['g-1', 'g-2', 'g-3'];
+      seedData.goals = seedData.goals.filter((g: any) => !mockGoalIds.includes(g.id));
+
+      // Re-calculate balances
+      seedData.wallets.forEach((w: any) => {
+        const txs = seedData.transactions.filter((tx: any) => tx.walletId === w.id);
+        let balance = 0;
+        txs.forEach((tx: any) => {
+          if (tx.type === 'income') {
+            balance += tx.amount;
+          } else {
+            balance -= tx.amount;
+          }
+        });
+        w.balance = balance;
+      });
+
+      this.data = seedData;
+      await this.saveToMongo();
+    } else {
+      this.data = {
+        user: fallbackUserDoc?.user || parsedUsers[0] || INITIAL_USER,
+        users: parsedUsers,
+        wallets: parsedWallets,
+        categories: parsedCategories,
+        transactions: parsedTransactions,
+        budgets: parsedBudgets,
+        goals: parsedGoals,
+        notifications: parsedNotifications,
+        appConfig: appConfigDoc ? { appName: appConfigDoc.appName, appLogo: appConfigDoc.appLogo } : { appName: 'Spendly', appLogo: '' },
+        appSettings: appSettingsDoc ? (appSettingsDoc as any) : undefined
+      };
+    }
+  }
+
+  private async saveToMongo(): Promise<void> {
+    if (!this.mongoDb) return;
+
+    try {
+      const collections = {
+        users: this.mongoDb.collection('users'),
+        wallets: this.mongoDb.collection('wallets'),
+        categories: this.mongoDb.collection('categories'),
+        transactions: this.mongoDb.collection('transactions'),
+        budgets: this.mongoDb.collection('budgets'),
+        goals: this.mongoDb.collection('goals'),
+        notifications: this.mongoDb.collection('notifications'),
+        appConfig: this.mongoDb.collection('appConfig'),
+        appSettings: this.mongoDb.collection('appSettings'),
+        globals: this.mongoDb.collection('globals'),
+      };
+
+      await this.syncMongoCollection(collections.users, this.data.users || [this.data.user]);
+      await this.syncMongoCollection(collections.wallets, this.data.wallets);
+      await this.syncMongoCollection(collections.categories, this.data.categories);
+      await this.syncMongoCollection(collections.transactions, this.data.transactions);
+      await this.syncMongoCollection(collections.budgets, this.data.budgets);
+      await this.syncMongoCollection(collections.goals, this.data.goals);
+      await this.syncMongoCollection(collections.notifications, this.data.notifications);
+
+      if (this.data.appConfig) {
+        await collections.appConfig.updateOne(
+          { _id: 'app_config' as any },
+          { $set: this.data.appConfig },
+          { upsert: true }
+        );
+      }
+
+      if (this.data.appSettings) {
+        const { _id, ...rest } = this.data.appSettings;
+        await collections.appSettings.updateOne(
+          { _id: (_id || '64b1f893f0b2a5c1a8d01234') as any },
+          { $set: rest },
+          { upsert: true }
+        );
+      }
+
+      await collections.globals.updateOne(
+        { _id: 'fallback_user' as any },
+        { $set: { user: this.data.user } },
+        { upsert: true }
+      );
+    } catch (err) {
+      console.error('[Spendly] Error saving data to MongoDB:', err);
+    }
+  }
+
+  private async syncMongoCollection(collection: any, items: any[]): Promise<void> {
+    if (!items || items.length === 0) {
+      await collection.deleteMany({});
+      return;
+    }
+
+    const ids = items.map(item => item.id);
+    await collection.deleteMany({ id: { $nin: ids } });
+
+    const bulkOps = items.map(item => ({
+      updateOne: {
+        filter: { id: item.id },
+        update: { $set: item },
+        upsert: true
+      }
+    }));
+    await collection.bulkWrite(bulkOps);
+  }
+
   private saveData(data: DatabaseSchema) {
     try {
       fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
@@ -163,8 +411,15 @@ class Database {
   }
 
   public save() {
-    this.saveData(this.data);
+    if (this.mongoDb) {
+      this.saveToMongo().catch(err => {
+        console.error('[Spendly] Error in background MongoDB save:', err);
+      });
+    } else {
+      this.saveData(this.data);
+    }
   }
+
 
   // App Branding config Actions
   public getAppConfig() {
