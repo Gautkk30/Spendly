@@ -79,6 +79,8 @@ interface AppContextType {
   setCurrency: (currency: CurrencyCode) => void;
   setActiveView: (view: string) => void;
   setGlobalSearch: (search: string) => void;
+  isAddWalletOpen: boolean;
+  setAddWalletOpen: (open: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -104,6 +106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currency, setCurrencyState] = useState<CurrencyCode>('INR');
   const [activeView, setActiveView] = useState<string>('dashboard');
   const [globalSearch, setGlobalSearch] = useState<string>('');
+  const [isAddWalletOpen, setAddWalletOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -149,8 +152,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const applyBranding = (name: string, logo: string, favicon?: string) => {
     const finalName = name || 'Spendly';
     document.title = finalName;
-    const finalFavicon = favicon || logo;
+    let finalFavicon = favicon || logo;
     if (finalFavicon) {
+      if (!finalFavicon.startsWith('data:')) {
+        const separator = finalFavicon.includes('?') ? '&' : '?';
+        finalFavicon = `${finalFavicon}${separator}cb=${Date.now()}`;
+      }
       const links = document.querySelectorAll("link[rel*='icon']");
       if (links.length > 0) {
         links.forEach(l => {
@@ -795,7 +802,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTheme,
       setCurrency,
       setActiveView,
-      setGlobalSearch
+      setGlobalSearch,
+      isAddWalletOpen,
+      setAddWalletOpen
     }}>
       {children}
     </AppContext.Provider>

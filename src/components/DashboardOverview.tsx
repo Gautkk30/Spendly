@@ -88,7 +88,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
     theme,
     user,
     budgets,
-    appName
+    appName,
+    setAddWalletOpen,
+    setActiveView
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'daily' | 'analytics'>('daily');
@@ -383,6 +385,192 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
         strainedBudgetPercent = Math.round(prog * 100);
       }
     });
+  }
+
+  if (wallets.length === 0) {
+    const completedSteps = [
+      wallets.length > 0,
+      categories.length > 0,
+      transactions.length > 0,
+      budgets.length > 0,
+      goals.length > 0
+    ].filter(Boolean).length;
+
+    const onboardingSteps = [
+      {
+        id: 'wallet',
+        title: 'Create your first wallet',
+        description: 'Set up an account with your starting balance (e.g., Bank, Cash, Card, Savings) so you can track your balances.',
+        status: wallets.length > 0,
+        actionLabel: '+ Create Wallet',
+        action: () => setAddWalletOpen(true),
+        isLocked: false
+      },
+      {
+        id: 'category',
+        title: 'Create your first category',
+        description: 'Organize your spending (e.g. Subscriptions, Food, Utilities) with unique icons and custom colors.',
+        status: categories.length > 0,
+        actionLabel: 'Configure Categories',
+        action: () => setActiveView('categories'),
+        isLocked: false
+      },
+      {
+        id: 'transaction',
+        title: 'Add your first transaction',
+        description: 'Record an income or expense flow. Requires at least one active wallet/account to register ledger audits.',
+        status: transactions.length > 0,
+        actionLabel: '+ Record Transaction',
+        action: onOpenAddTx,
+        isLocked: wallets.length === 0
+      },
+      {
+        id: 'budget',
+        title: 'Set your first monthly budget',
+        description: 'Establish category ceiling guardrails to monitor your spending and receive automated alerts.',
+        status: budgets.length > 0,
+        actionLabel: 'Set Budget Limits',
+        action: () => setActiveView('budgets'),
+        isLocked: false
+      },
+      {
+        id: 'goal',
+        title: 'Create your first savings goal',
+        description: 'Set milestone target amounts, configure deadline metrics, and track your visual progress bar.',
+        status: goals.length > 0,
+        actionLabel: 'Establish Savings Goal',
+        action: () => setActiveView('goals'),
+        isLocked: false
+      }
+    ];
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-4xl mx-auto space-y-8 py-4"
+      >
+        {/* Welcome Block */}
+        <div className="space-y-2 text-center max-w-2xl mx-auto">
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-xl flex items-center justify-center mx-auto mb-4">
+            <div className="w-full h-full rounded-[14px] bg-zinc-950 flex items-center justify-center">
+              <Sparkles className="text-emerald-400 h-5 w-5" />
+            </div>
+          </div>
+          <h1 className={`text-3xl font-black tracking-tight ${titleStyle}`}>
+            Welcome to {appName}!
+          </h1>
+          <p className={`text-sm ${textMutedStyle} leading-relaxed`}>
+            Let's activate your secure financial ledger and auditing suite in 5 simple steps. Your account is completely isolated and secure.
+          </p>
+        </div>
+
+        {/* Progress Card */}
+        <div className={`p-6 rounded-3xl border flex flex-col md:flex-row items-center justify-between gap-6 ${
+          isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-900/30 border-zinc-800/60'
+        }`}>
+          <div className="space-y-1.5 flex-1 w-full">
+            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+              <span className={titleStyle}>Setup & Onboarding Progress</span>
+              <span className="text-emerald-500">{completedSteps} / 5 Completed</span>
+            </div>
+            <div className={`w-full h-2 rounded-full overflow-hidden ${isLight ? 'bg-zinc-100' : 'bg-zinc-950'}`}>
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700 ease-out" 
+                style={{ width: `${(completedSteps / 5) * 100}%` }}
+              />
+            </div>
+          </div>
+          <div className="text-center md:text-right shrink-0">
+            <span className="text-3xl font-black tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+              {Math.round((completedSteps / 5) * 100)}%
+            </span>
+            <span className={`block text-[9px] uppercase font-bold tracking-wider mt-0.5 ${textMutedStyle}`}>Activation Level</span>
+          </div>
+        </div>
+
+        {/* Steps List */}
+        <div className="space-y-4">
+          <h3 className={`text-xs font-bold uppercase tracking-wider ${textMutedStyle}`}>Onboarding Steps</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {onboardingSteps.map((step, index) => {
+              const isLocked = step.isLocked;
+              const isDone = step.status;
+              
+              return (
+                <div 
+                  key={step.id}
+                  className={`p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+                    isDone 
+                      ? 'border-emerald-500/20 bg-emerald-500/[0.01]' 
+                      : isLocked 
+                      ? 'opacity-40 border-dashed border-zinc-800 bg-transparent'
+                      : isLight 
+                      ? 'bg-white border-zinc-200 shadow-sm hover:border-zinc-300' 
+                      : 'bg-zinc-900/10 border-zinc-800/60 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-start gap-4 flex-1">
+                    {/* Step number / icon */}
+                    <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border text-xs font-black ${
+                      isDone 
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
+                        : isLight 
+                        ? 'bg-zinc-50 border-zinc-200 text-zinc-950' 
+                        : 'bg-zinc-950 border-zinc-850 text-white'
+                    }`}>
+                      {isDone ? '✓' : index + 1}
+                    </div>
+                    <div className="space-y-1 min-w-0">
+                      <h4 className={`text-sm font-bold flex items-center gap-2 ${titleStyle}`}>
+                        <span>{step.title}</span>
+                        {isDone && (
+                          <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Completed</span>
+                        )}
+                        {isLocked && (
+                          <span className="text-[10px] bg-zinc-500/10 text-zinc-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Locked</span>
+                        )}
+                      </h4>
+                      <p className={`text-xs leading-relaxed ${textMutedStyle}`}>{step.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 sm:pl-4">
+                    {isDone ? (
+                      <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-bold px-3 py-1.5">
+                        Completed
+                      </div>
+                    ) : isLocked ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full sm:w-auto px-4 py-2 text-xs font-bold rounded-xl bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-850"
+                      >
+                        Locked
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={step.action}
+                        className={`w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer border shadow-sm ${
+                          step.id === 'wallet'
+                            ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-400'
+                            : isLight
+                            ? 'bg-zinc-900 hover:bg-zinc-800 text-white border-zinc-900'
+                            : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950 border-white'
+                        }`}
+                      >
+                        {step.actionLabel}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
+    );
   }
 
   return (

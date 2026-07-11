@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { X, Calendar, Landmark, Tag, ChevronDown } from 'lucide-react';
+import { X, Calendar, Landmark, Tag, ChevronDown, Plus, Check, FolderPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Transaction } from '../types';
 
@@ -11,7 +11,15 @@ interface AddTxModalProps {
 }
 
 export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx }) => {
-  const { wallets, categories, addTransaction, updateTransaction, theme } = useApp();
+  const { 
+    wallets, 
+    categories, 
+    addTransaction, 
+    updateTransaction, 
+    addCategory, 
+    setAddWalletOpen, 
+    theme 
+  } = useApp();
 
   const isLight = theme === 'light';
 
@@ -26,6 +34,15 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
   const [tags, setTags] = useState<string[]>([]);
   const [isRecurring, setIsRecurring] = useState<boolean>(false);
   const [recurringInterval, setRecurringInterval] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+
+  // Inline category creation states
+  const [createInlineCategory, setCreateInlineCategory] = useState<boolean>(false);
+  const [newCatName, setNewCatName] = useState<string>('');
+  const [newCatColor, setNewCatColor] = useState<string>('#3b82f6');
+  const [newCatIcon, setNewCatIcon] = useState<string>('Tag');
+
+  const miniColors = ['#ef4444', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
+  const miniIcons = ['Utensils', 'Home', 'Car', 'ShoppingBag', 'Zap', 'Tag'];
 
   // Load defaults or edit values
   useEffect(() => {
@@ -66,6 +83,40 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
     setType(newType);
     const firstMatchingCat = categories.find(c => c.type === newType);
     setCategoryId(firstMatchingCat?.id || '');
+    if (!firstMatchingCat) {
+      setCreateInlineCategory(true);
+    }
+  };
+
+  // Auto-select category if none is selected, or if a new one is added
+  useEffect(() => {
+    if (isOpen) {
+      const filtered = categories.filter(c => c.type === type);
+      if (filtered.length > 0) {
+        if (!filtered.some(c => c.id === categoryId)) {
+          setCategoryId(filtered[0].id);
+        }
+      } else {
+        setCategoryId('');
+        setCreateInlineCategory(true);
+      }
+    }
+  }, [categories, type, isOpen, categoryId]);
+
+  const handleCreateCategoryInline = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!newCatName.trim()) {
+      alert('Please enter a category name');
+      return;
+    }
+    await addCategory({
+      name: newCatName.trim(),
+      type,
+      color: newCatColor,
+      icon: newCatIcon
+    });
+    setNewCatName('');
+    setCreateInlineCategory(false);
   };
 
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -176,7 +227,32 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            {wallets.length === 0 ? (
+              <div className="p-8 text-center space-y-4">
+                <div className="h-12 w-12 rounded-2xl bg-amber-500/10 p-0.5 flex items-center justify-center mx-auto">
+                  <Landmark className="text-amber-500 h-6 w-6" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className={`font-bold text-sm ${isLight ? 'text-zinc-900' : 'text-white'}`}>
+                    No wallets/accounts created yet
+                  </h3>
+                  <p className={`text-xs ${isLight ? 'text-zinc-500' : 'text-slate-400'} leading-relaxed max-w-xs mx-auto`}>
+                    You need to create at least one account/wallet before recording transactions.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    setAddWalletOpen(true);
+                  }}
+                  className="px-5 py-2.5 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl transition-all shadow-md cursor-pointer"
+                >
+                  + Create First Wallet
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="p-6 space-y-5">
               {/* Income / Expense Toggle Card */}
               <div className={`grid grid-cols-2 gap-2.5 p-1 rounded-2xl border ${
                 isLight ? 'bg-zinc-100 border-zinc-200' : 'bg-slate-950/60 border border-slate-800'
@@ -279,27 +355,106 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
                 </div>
 
                 <div>
-                  <label className={`block text-xs font-semibold mb-1.5 uppercase tracking-wider ${
-                    isLight ? 'text-zinc-600' : 'text-slate-400'
-                  }`}>Category</label>
-                  <div className="relative">
-                    <select
-                      value={categoryId}
-                      onChange={(e) => setCategoryId(e.target.value)}
-                      className={`w-full rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none appearance-none cursor-pointer border ${
-                        isLight 
-                          ? 'bg-zinc-50 border-zinc-200 text-zinc-900' 
-                          : 'bg-slate-950 border-slate-800 text-slate-100'
-                      }`}
-                    >
-                      {filteredCategories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${
-                      isLight ? 'text-zinc-400' : 'text-slate-500'
-                    }`} />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${
+                      isLight ? 'text-zinc-600' : 'text-slate-400'
+                    }`}>Category</label>
+                    {filteredCategories.length > 0 && (
+                      <button 
+                        type="button"
+                        onClick={() => setCreateInlineCategory(prev => !prev)}
+                        className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-wider cursor-pointer"
+                      >
+                        {createInlineCategory ? 'Select Existing' : '+ New'}
+                      </button>
+                    )}
                   </div>
+
+                  {createInlineCategory ? (
+                    <div className={`p-3 rounded-xl border space-y-3 ${
+                      isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-slate-950 border-slate-850'
+                    }`}>
+                      <input 
+                        type="text"
+                        placeholder="Category Name"
+                        value={newCatName}
+                        onChange={(e) => setNewCatName(e.target.value)}
+                        className={`w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none border ${
+                          isLight 
+                            ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400' 
+                            : 'bg-slate-900 border-slate-800 text-slate-100 placeholder-slate-600'
+                        }`}
+                      />
+                      
+                      {/* Color dots */}
+                      <div className="space-y-1">
+                        <span className="block text-[10px] uppercase font-semibold text-slate-400">Color</span>
+                        <div className="flex items-center gap-1.5">
+                          {miniColors.map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setNewCatColor(c)}
+                              className="h-5 w-5 rounded-full transition-transform cursor-pointer flex items-center justify-center border border-black/15"
+                              style={{ backgroundColor: c }}
+                            >
+                              {newCatColor === c && <Check size={10} className="text-white font-bold" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Icon dots */}
+                      <div className="space-y-1">
+                        <span className="block text-[10px] uppercase font-semibold text-slate-400">Icon</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {miniIcons.map(ic => (
+                            <button
+                              key={ic}
+                              type="button"
+                              onClick={() => setNewCatIcon(ic)}
+                              className={`p-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                                newCatIcon === ic 
+                                  ? 'bg-emerald-500/15 border-emerald-500 text-emerald-500' 
+                                  : isLight 
+                                  ? 'bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-700' 
+                                  : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300'
+                              }`}
+                            >
+                              {ic}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleCreateCategoryInline}
+                        className="w-full py-1.5 text-center text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer shadow-sm"
+                      >
+                        Save Category
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <select
+                        value={categoryId}
+                        onChange={(e) => setCategoryId(e.target.value)}
+                        className={`w-full rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none appearance-none cursor-pointer border ${
+                          isLight 
+                            ? 'bg-zinc-50 border-zinc-200 text-zinc-900' 
+                            : 'bg-slate-950 border-slate-800 text-slate-100'
+                        }`}
+                      >
+                        {filteredCategories.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${
+                        isLight ? 'text-zinc-400' : 'text-slate-500'
+                      }`} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -463,6 +618,7 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
                 </button>
               </div>
             </form>
+            )}
           </motion.div>
         </div>
       )}

@@ -10,6 +10,7 @@ import CategoriesView from './components/CategoriesView';
 import SettingsView from './components/SettingsView';
 import RecycleBinView from './components/RecycleBinView';
 import AddTxModal from './components/AddTxModal';
+import AddWalletModal from './components/AddWalletModal';
 import OCRModal from './components/OCRModal';
 import BottomNavigation from './components/BottomNavigation';
 import { Loader2, AlertCircle, Trash2, Plus, ArrowRight, Mail, User, ShieldAlert, Sparkles, RotateCcw } from 'lucide-react';
@@ -114,7 +115,9 @@ function DashboardLayout() {
     user,
     undoItem,
     triggerUndo,
-    dismissUndo
+    dismissUndo,
+    isAddWalletOpen,
+    setAddWalletOpen
   } = useApp();
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -336,6 +339,12 @@ function DashboardLayout() {
           isOpen={addTxOpen} 
           onClose={handleCloseAddTx} 
           editTx={editingTx} 
+        />
+
+        {/* Wallet Addition Modal */}
+        <AddWalletModal
+          isOpen={isAddWalletOpen}
+          onClose={() => setAddWalletOpen(false)}
         />
 
         {/* AI Receipt Scanner Modal */}

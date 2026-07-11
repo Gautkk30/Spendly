@@ -292,8 +292,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
                     isLight ? 'divide-zinc-100' : 'divide-zinc-800/50'
                   }`}>
                     {notifications.length === 0 ? (
-                      <div className="p-6 text-center text-zinc-400 text-xs">
-                        No recent alerts.
+                      <div className="p-8 text-center space-y-2.5">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center mx-auto ${
+                          isLight ? 'bg-zinc-100 text-zinc-400' : 'bg-zinc-950 text-zinc-500'
+                        }`}>
+                          <Bell size={14} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className={`text-xs font-bold ${isLight ? 'text-zinc-800' : 'text-zinc-200'}`}>No recent alerts</p>
+                          <p className="text-[10px] text-zinc-400 leading-normal max-w-[180px] mx-auto">We'll notify you when budget warnings or goal landmarks trigger.</p>
+                        </div>
                       </div>
                     ) : (
                       notifications.map((notif) => (
