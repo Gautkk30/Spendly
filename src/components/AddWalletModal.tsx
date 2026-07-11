@@ -86,7 +86,7 @@ export const AddWalletModal: React.FC<AddWalletModalProps> = ({ isOpen, onClose 
               <h2 className={`text-lg font-bold ${
                 isLight ? 'text-zinc-900' : 'text-white'
               }`}>
-                New Wallet / Account
+                New Account
               </h2>
               <button 
                 onClick={onClose}
@@ -106,13 +106,13 @@ export const AddWalletModal: React.FC<AddWalletModalProps> = ({ isOpen, onClose 
               <div>
                 <label className={`block text-xs font-semibold mb-1.5 uppercase tracking-wider ${
                   isLight ? 'text-zinc-600' : 'text-slate-400'
-                }`}>Account/Wallet Name</label>
+                }`}>Account Name</label>
                 <input 
                   type="text" 
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. HDFC Checking, Cash Wallet, SBI Savings"
+                  placeholder="e.g. HDFC Checking, Cash, SBI Savings"
                   className={`w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition-all ${
                     isLight 
                       ? 'bg-zinc-50 border border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:bg-white' 
@@ -225,7 +225,7 @@ export const AddWalletModal: React.FC<AddWalletModalProps> = ({ isOpen, onClose 
                   type="submit"
                   className="px-6 py-2.5 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl shadow-lg shadow-emerald-500/10 transition-all cursor-pointer"
                 >
-                  Create Wallet
+                  Create Account
                 </button>
               </div>
             </form>

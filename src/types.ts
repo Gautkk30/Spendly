@@ -24,7 +24,7 @@ export interface Category {
   deletedBy?: string;
 }
 
-export type WalletType = 'cash' | 'bank' | 'card';
+export type WalletType = 'cash' | 'bank' | 'card' | 'savings';
 
 export interface Wallet {
   id: string;

@@ -12,7 +12,8 @@ import {
   ChevronRight,
   LogOut,
   User,
-  Trash2
+  Trash2,
+  Landmark
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DEFAULT_AVATAR } from '../data/defaultData';
@@ -49,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'wallets', label: 'Accounts', icon: Landmark },
     { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
     { id: 'budgets', label: 'Budgets', icon: PieChart },
     { id: 'goals', label: 'Financial Goals', icon: Target },

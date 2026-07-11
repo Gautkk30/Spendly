@@ -9,6 +9,7 @@ import GoalsView from './components/GoalsView';
 import CategoriesView from './components/CategoriesView';
 import SettingsView from './components/SettingsView';
 import RecycleBinView from './components/RecycleBinView';
+import WalletsView from './components/WalletsView';
 import AddTxModal from './components/AddTxModal';
 import AddWalletModal from './components/AddWalletModal';
 import OCRModal from './components/OCRModal';
@@ -195,10 +196,10 @@ function DashboardLayout() {
         return;
       }
 
-      // Navigation tabs: numbers 1-6
-      if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
+      // Navigation tabs: numbers 1-7
+      if (['1', '2', '3', '4', '5', '6', '7'].includes(e.key)) {
         e.preventDefault();
-        const views = ['dashboard', 'transactions', 'budgets', 'goals', 'categories', 'settings'];
+        const views = ['dashboard', 'wallets', 'transactions', 'budgets', 'goals', 'categories', 'settings'];
         const idx = parseInt(e.key, 10) - 1;
         if (views[idx]) {
           setActiveView(views[idx]);
@@ -312,6 +313,7 @@ function DashboardLayout() {
                       onEditTx={handleEditTx} 
                     />
                   )}
+                  {activeView === 'wallets' && <WalletsView />}
                   {activeView === 'transactions' && (
                     <TransactionsView 
                       onOpenAddTx={() => setAddTxOpen(true)} 

@@ -399,10 +399,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
     const onboardingSteps = [
       {
         id: 'wallet',
-        title: 'Create your first wallet',
+        title: 'Create your first account',
         description: 'Set up an account with your starting balance (e.g., Bank, Cash, Card, Savings) so you can track your balances.',
         status: wallets.length > 0,
-        actionLabel: '+ Create Wallet',
+        actionLabel: '+ Create Account',
         action: () => setAddWalletOpen(true),
         isLocked: false
       },
@@ -418,7 +418,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
       {
         id: 'transaction',
         title: 'Add your first transaction',
-        description: 'Record an income or expense flow. Requires at least one active wallet/account to register ledger audits.',
+        description: 'Record an income or expense flow. Requires at least one active financial account to register ledger audits.',
         status: transactions.length > 0,
         actionLabel: '+ Record Transaction',
         action: onOpenAddTx,
@@ -458,10 +458,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
             </div>
           </div>
           <h1 className={`text-3xl font-black tracking-tight ${titleStyle}`}>
-            Welcome to {appName}!
+            Welcome!
           </h1>
           <p className={`text-sm ${textMutedStyle} leading-relaxed`}>
-            Let's activate your secure financial ledger and auditing suite in 5 simple steps. Your account is completely isolated and secure.
+            Create your first account to begin tracking your finances.
           </p>
         </div>
 

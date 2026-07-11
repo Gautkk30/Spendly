@@ -59,6 +59,7 @@ interface AppContextType {
   
   updateUser: (update: Partial<UserProfile>) => Promise<void>;
   addWallet: (wallet: Omit<Wallet, 'id'>) => Promise<void>;
+  updateWallet: (id: string, update: Partial<Wallet>) => Promise<void>;
   deleteWallet: (id: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -158,18 +159,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const separator = finalFavicon.includes('?') ? '&' : '?';
         finalFavicon = `${finalFavicon}${separator}cb=${Date.now()}`;
       }
+      
+      // Remove all existing favicon links to force browser to redraw the tab icon
       const links = document.querySelectorAll("link[rel*='icon']");
-      if (links.length > 0) {
-        links.forEach(l => {
-          (l as HTMLLinkElement).href = finalFavicon;
-        });
-      } else {
-        const link = document.createElement('link');
-        link.rel = 'icon';
-        link.type = 'image/png';
-        link.href = finalFavicon;
-        document.head.appendChild(link);
-      }
+      links.forEach(l => {
+        l.parentNode?.removeChild(l);
+      });
+      
+      // Create and append a brand-new favicon link element
+      const link = document.createElement('link');
+      link.rel = 'icon';
+      link.type = 'image/png';
+      link.href = finalFavicon;
+      document.head.appendChild(link);
     }
   };
 
@@ -210,7 +212,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
       const meUser = await meRes.json();
-      setUser({ ...meUser, defaultCurrency: meUser.defaultCurrency || 'INR' });
 
       // 3. Fetch private ledger data using custom auth header
       const [walletsRes, categoriesRes, txRes, budgetsRes, goalsRes, notifRes] = await Promise.all([
@@ -222,50 +223,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fetch('/api/notifications', { headers: getHeaders() }).then(r => r.json())
       ]);
 
-      // Force all currency definitions to INR and scale USD metrics accordingly
-      const walletsInINR = (walletsRes || []).map((w: any) => {
-        if (w.currency !== 'INR') {
-          return {
-            ...w,
-            currency: 'INR',
-            balance: Math.round(w.balance * 83.4 * 100) / 100
-          };
-        }
-        return w;
-      });
-
-      const transactionsInINR = (txRes || []).map((tx: any) => {
-        const correspondingWallet = walletsRes?.find((w: any) => w.id === tx.walletId);
-        if (correspondingWallet && correspondingWallet.currency !== 'INR') {
-          return {
-            ...tx,
-            amount: Math.round(tx.amount * 83.4 * 100) / 100
-          };
-        }
-        return tx;
-      });
-
-      const budgetsInINR = (budgetsRes || []).map((b: any) => {
-        if (b.amount < 5000) {
-          return {
-            ...b,
-            amount: Math.round(b.amount * 83.4),
-            spent: Math.round(b.spent * 83.4)
-          };
-        }
-        return b;
-      });
-
-      const goalsInINR = (goalsRes || []).map((g: any) => {
-        if (g.targetAmount < 30000) {
-          return {
-            ...g,
-            targetAmount: Math.round(g.targetAmount * 83.4),
-            currentAmount: Math.round(g.currentAmount * 83.4)
-          };
-        }
-        return g;
-      });
+      const walletsInINR = walletsRes || [];
+      const transactionsInINR = txRes || [];
+      const budgetsInINR = budgetsRes || [];
+      const goalsInINR = goalsRes || [];
 
       setWallets(walletsInINR);
       setCategories(categoriesRes);
@@ -278,6 +239,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setThemeState(meUser.theme);
       }
       setCurrencyState(meUser.defaultCurrency || 'INR');
+      setUser({ ...meUser, defaultCurrency: meUser.defaultCurrency || 'INR' });
     } catch (err: any) {
       console.error('Failed to fetch data from API:', err);
       setError('Connection to backend failed. Please check if the dev server is fully loaded.');
@@ -300,8 +262,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('message', handleAuthMessage);
     fetchData(); // Fetch initial session status on mount
 
+    const pollConfig = async () => {
+      try {
+        const configRes = await fetch('/api/config', { headers: getHeaders() }).then(r => r.json());
+        const finalName = configRes.applicationName || configRes.appName || 'Spendly';
+        const finalLogo = configRes.logoUrl || configRes.appLogo || '';
+        const finalFavicon = configRes.faviconUrl || configRes.appFavicon || finalLogo;
+        const finalTagline = configRes.tagline || 'Smarter Wealth & Ledger Auditing Suite';
+        const finalBrandColors = configRes.brandColors || { primary: '#09090b', secondary: '#27272a' };
+        
+        setAppName(prev => prev !== finalName ? finalName : prev);
+        setAppLogo(prev => prev !== finalLogo ? finalLogo : prev);
+        setAppFavicon(prev => prev !== finalFavicon ? finalFavicon : prev);
+        setTagline(prev => prev !== finalTagline ? finalTagline : prev);
+        setBrandColors(prev => {
+          if (prev.primary !== finalBrandColors.primary || prev.secondary !== finalBrandColors.secondary) {
+            return finalBrandColors;
+          }
+          return prev;
+        });
+        
+        applyBranding(finalName, finalLogo, finalFavicon);
+      } catch (e) {
+        // Silently ignore polling errors
+      }
+    };
+
+    const intervalId = setInterval(pollConfig, 4000);
+
     return () => {
       window.removeEventListener('message', handleAuthMessage);
+      clearInterval(intervalId);
     };
   }, []);
 
@@ -563,6 +554,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await executeMutation('/api/wallets', 'POST', wallet, optimisticAction);
   };
 
+  const updateWallet = async (id: string, update: Partial<Wallet>) => {
+    const optimisticAction = () => {
+      setWallets(prev => prev.map(w => w.id === id ? { ...w, ...update } : w));
+    };
+    await executeMutation(`/api/wallets/${id}`, 'PUT', update, optimisticAction);
+  };
+
   const deleteWallet = async (id: string) => {
     const optimisticAction = () => {
       setWallets(prev => prev.filter(w => w.id !== id));
@@ -783,6 +781,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       updateUser,
       addWallet,
+      updateWallet,
       deleteWallet,
       addCategory,
       deleteCategory,

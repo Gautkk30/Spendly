@@ -153,6 +153,7 @@ export const SettingsView: React.FC = () => {
       reader.onloadend = () => {
         const base64 = reader.result as string;
         setLocalAppLogo(base64);
+        setLocalAppFavicon(base64);
       };
       reader.readAsDataURL(file);
     }
@@ -205,7 +206,7 @@ export const SettingsView: React.FC = () => {
     await updateAppConfig(
       localAppName.trim(), 
       localAppLogo, 
-      localAppFavicon, 
+      localAppLogo, 
       localTagline.trim(), 
       { primary: localPrimaryColor, secondary: localSecondaryColor }
     );
@@ -502,24 +503,16 @@ export const SettingsView: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>SaaS Web App Logo URL / Input</label>
+                  <div className="sm:col-span-2">
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Brand Logo URL / Input</label>
                     <input 
                       type="text" 
                       value={localAppLogo}
-                      onChange={(e) => setLocalAppLogo(e.target.value)}
+                      onChange={(e) => {
+                        setLocalAppLogo(e.target.value);
+                        setLocalAppFavicon(e.target.value);
+                      }}
                       placeholder="e.g. Image URL or Base64 String"
-                      className={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>SaaS Web App Favicon URL</label>
-                    <input 
-                      type="text" 
-                      value={localAppFavicon}
-                      onChange={(e) => setLocalAppFavicon(e.target.value)}
-                      placeholder="e.g. Browser Tab Favicon URL"
                       className={inputStyle}
                     />
                   </div>

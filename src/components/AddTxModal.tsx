@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { X, Calendar, Landmark, Tag, ChevronDown, Plus, Check, FolderPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Transaction } from '../types';
+import { CURRENCIES } from '../data/defaultData';
 
 interface AddTxModalProps {
   isOpen: boolean;
@@ -234,10 +235,10 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
                 </div>
                 <div className="space-y-1.5">
                   <h3 className={`font-bold text-sm ${isLight ? 'text-zinc-900' : 'text-white'}`}>
-                    No wallets/accounts created yet
+                    You haven't created any accounts yet.
                   </h3>
                   <p className={`text-xs ${isLight ? 'text-zinc-500' : 'text-slate-400'} leading-relaxed max-w-xs mx-auto`}>
-                    You need to create at least one account/wallet before recording transactions.
+                    You need to create at least one financial account before recording transactions.
                   </p>
                 </div>
                 <button
@@ -248,7 +249,7 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
                   }}
                   className="px-5 py-2.5 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl transition-all shadow-md cursor-pointer"
                 >
-                  + Create First Wallet
+                  + Create First Account
                 </button>
               </div>
             ) : (
@@ -344,9 +345,14 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
                           : 'bg-slate-950 border-slate-800 text-slate-100'
                       }`}
                     >
-                      {wallets.map(w => (
-                        <option key={w.id} value={w.id}>{w.name} (₹{w.balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</option>
-                      ))}
+                      {wallets.map(w => {
+                        const sym = CURRENCIES[w.currency]?.symbol || '₹';
+                        return (
+                          <option key={w.id} value={w.id}>
+                            {w.name} ({sym}{w.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                          </option>
+                        );
+                      })}
                     </select>
                     <Landmark size={14} className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${
                       isLight ? 'text-zinc-400' : 'text-slate-500'
