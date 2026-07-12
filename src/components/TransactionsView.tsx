@@ -58,7 +58,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
     addTransaction,
     theme,
     globalSearch,
-    setGlobalSearch
+    setGlobalSearch,
+    activeCategoryFilter,
+    setActiveCategoryFilter
   } = useApp();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,12 +75,12 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
     setCurrentPage(1);
   };
   
-  const [filterCategory, setFilterCategoryState] = useState('all');
+  const filterCategory = activeCategoryFilter || 'all';
   const [filterWallet, setFilterWalletState] = useState('all');
   const [filterType, setFilterTypeState] = useState('all');
 
   const setFilterCategory = (val: string) => {
-    setFilterCategoryState(val);
+    setActiveCategoryFilter(val === 'all' ? null : val);
     setCurrentPage(1);
   };
   const setFilterWallet = (val: string) => {
@@ -347,6 +349,27 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({ onOpenAddTx,
           ))}
         </select>
       </div>
+
+      {/* Active category filter banner/chip */}
+      {filterCategory !== 'all' && (
+        <div className="flex items-center gap-2 mb-4 animate-fade-in self-start">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+            isLight 
+              ? 'bg-emerald-50/50 border-emerald-200/60 text-emerald-700' 
+              : 'bg-emerald-950/20 border-emerald-900/40 text-emerald-400'
+          }`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Showing only category: {categories.find(c => c.id === filterCategory)?.name || 'Filtered'}</span>
+            <button 
+              onClick={() => setFilterCategory('all')}
+              className="ml-1 text-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-300 font-extrabold cursor-pointer px-1 hover:bg-emerald-500/10 rounded transition-colors"
+              title="Clear active category filter"
+            >
+              Clear Filter
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Ledger Table */}
       {/* Main Ledger container */}

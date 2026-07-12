@@ -18,6 +18,7 @@ import { Loader2, AlertCircle, Trash2, Plus, ArrowRight, Mail, User, ShieldAlert
 import { motion, AnimatePresence } from 'motion/react';
 import { CommandPalette } from './components/CommandPalette';
 import { WelcomeTour } from './components/WelcomeTour';
+import PWAManager from './components/PWAManager';
 
 const appAnimationVariants = {
   loading: {
@@ -427,6 +428,9 @@ function DashboardLayout() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Dynamic Progressive Web App Manager */}
+        <PWAManager />
 
       </motion.div>
 

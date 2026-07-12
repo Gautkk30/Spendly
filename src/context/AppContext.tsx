@@ -84,6 +84,8 @@ interface AppContextType {
   setAddWalletOpen: (open: boolean) => void;
   mobileDrawerOpen: boolean;
   setMobileDrawerOpen: (open: boolean) => void;
+  activeCategoryFilter: string | null;
+  setActiveCategoryFilter: (catId: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -111,6 +113,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [globalSearch, setGlobalSearch] = useState<string>('');
   const [isAddWalletOpen, setAddWalletOpen] = useState<boolean>(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -808,7 +811,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isAddWalletOpen,
       setAddWalletOpen,
       mobileDrawerOpen,
-      setMobileDrawerOpen
+      setMobileDrawerOpen,
+      activeCategoryFilter,
+      setActiveCategoryFilter
     }}>
       {children}
     </AppContext.Provider>

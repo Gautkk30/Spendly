@@ -384,6 +384,136 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 // PROTECTED API ENDPOINTS
 // ==========================================
 
+// ==========================================
+// PWA MANIFEST & BRAND ICON ENDPOINTS
+// ==========================================
+
+let cachedBase64Logo = '';
+let lastFetchedLogoUrl = '';
+
+async function getLogoAsBase64(logoUrl: string): Promise<string> {
+  if (!logoUrl) return '';
+  if (logoUrl.startsWith('data:')) return logoUrl;
+  if (logoUrl === lastFetchedLogoUrl && cachedBase64Logo) {
+    return cachedBase64Logo;
+  }
+  try {
+    const res = await fetch(logoUrl);
+    if (res.ok) {
+      const buffer = await res.arrayBuffer();
+      const contentType = res.headers.get('content-type') || 'image/png';
+      const base64 = Buffer.from(buffer).toString('base64');
+      cachedBase64Logo = `data:${contentType};base64,${base64}`;
+      lastFetchedLogoUrl = logoUrl;
+      return cachedBase64Logo;
+    }
+  } catch (e) {
+    console.error('Failed to pre-fetch logo as base64:', e);
+  }
+  return '';
+}
+
+// Serve Dynamic PWA Manifest to support brand customization on installation
+app.get('/manifest.json', async (req, res) => {
+  try {
+    const config = await AppSettings.findOne();
+    const appName = config?.applicationName || 'Spendly';
+    const tagline = config?.tagline || 'Smarter Wealth & Ledger Auditing Suite';
+    const primaryColor = config?.brandColors?.primary || '#09090b';
+
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      name: appName,
+      short_name: appName,
+      description: tagline,
+      start_url: '/',
+      display: 'standalone',
+      background_color: primaryColor,
+      theme_color: primaryColor,
+      orientation: 'portrait-primary',
+      scope: '/',
+      icons: [
+        {
+          src: '/api/pwa-icon?size=192',
+          sizes: '192x192',
+          type: 'image/svg+xml',
+          purpose: 'any'
+        },
+        {
+          src: '/api/pwa-icon?size=512',
+          sizes: '512x512',
+          type: 'image/svg+xml',
+          purpose: 'any'
+        },
+        {
+          src: '/api/pwa-icon?size=192&purpose=maskable',
+          sizes: '192x192',
+          type: 'image/svg+xml',
+          purpose: 'maskable'
+        },
+        {
+          src: '/api/pwa-icon?size=512&purpose=maskable',
+          sizes: '512x512',
+          type: 'image/svg+xml',
+          purpose: 'maskable'
+        }
+      ]
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve Dynamic Vector Icon supporting all standard sizes and dynamic backgrounds
+app.get('/api/pwa-icon', async (req, res) => {
+  try {
+    const size = parseInt(req.query.size as string) || 512;
+    const isMaskable = req.query.purpose === 'maskable';
+    const config = await AppSettings.findOne();
+    
+    const primaryColor = config?.brandColors?.primary || '#09090b';
+    const secondaryColor = config?.brandColors?.secondary || '#27272a';
+    const logoUrl = config?.logoUrl || '';
+    
+    // Resolve external or data-URI logo to dynamic base64 to ensure secure SVG rendering
+    const base64Logo = logoUrl ? await getLogoAsBase64(logoUrl) : '';
+
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+    
+    const rxValue = isMaskable ? '0' : '128'; // Fully square for maskable container specs
+
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}">
+  <defs>
+    <linearGradient id="pwa-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${primaryColor}" />
+      <stop offset="100%" stop-color="${secondaryColor}" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="${rxValue}" fill="url(#pwa-grad)" />
+  ${base64Logo ? `
+  <g transform="translate(96, 96)">
+    <clipPath id="logo-clip">
+      <rect width="320" height="320" rx="64" />
+    </clipPath>
+    <g clip-path="url(#logo-clip)">
+      <image href="${base64Logo}" width="320" height="320" />
+    </g>
+  </g>
+  ` : `
+  <circle cx="256" cy="256" r="140" fill="#09090b" opacity="0.4" />
+  <text x="256" y="296" font-family="system-ui, -apple-system, sans-serif" font-size="150" font-weight="900" fill="#10b981" text-anchor="middle">S</text>
+  <path d="M210,140 L302,140" stroke="#34d399" stroke-width="8" stroke-linecap="round" opacity="0.7" />
+  `}
+</svg>`.trim();
+
+    res.send(svg);
+  } catch (err: any) {
+    res.status(500).send(`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="#09090b"/><text x="256" y="256" fill="white" font-family="sans-serif" text-anchor="middle">Spendly</text></svg>`);
+  }
+});
+
 // Brand Customization Config Endpoints (Public GET, Protected Admin PUT)
 app.get('/api/config', async (req, res) => {
   try {
