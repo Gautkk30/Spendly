@@ -36,6 +36,7 @@ import {
 import { motion } from 'motion/react';
 import DynamicIcon from './Icons';
 import { AnimatedCounter } from './AnimatedCounter';
+import { CategoryBreakdown } from './CategoryBreakdown';
 
 const cardContainerVariants = {
   hidden: { opacity: 0 },
@@ -100,59 +101,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
   const [activeTab, setActiveTab] = useState<'daily' | 'analytics'>('daily');
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '12m'>('30d');
-
-  // Custom states for interactive Category Breakdown chart
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [tooltipState, setTooltipState] = useState<{
-    visible: boolean;
-    name: string;
-    amount: number;
-    percentage: number;
-    color: string;
-  }>({
-    visible: false,
-    name: '',
-    amount: 0,
-    percentage: 0,
-    color: ''
-  });
-
-  // Track cursor position globally during active tooltip display
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-    if (tooltipState.visible) {
-      window.addEventListener('mousemove', handleGlobalMouseMove);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-    };
-  }, [tooltipState.visible]);
-
-  const renderActiveShape = (props: any) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-    return (
-      <g style={{ outline: 'none' }}>
-        <Sector
-          cx={cx}
-          cy={cy}
-          innerRadius={innerRadius}
-          outerRadius={outerRadius + 8}
-          startAngle={startAngle}
-          endAngle={endAngle}
-          fill={fill}
-          style={{ 
-            filter: 'brightness(1.15) drop-shadow(0 4px 12px rgba(0,0,0,0.25))',
-            transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
-            cursor: 'pointer',
-            outline: 'none'
-          }}
-        />
-      </g>
-    );
-  };
 
   const isLight = theme === 'light';
   const symbol = CURRENCIES[currency]?.symbol || '$';
@@ -1006,123 +954,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
             </div>
 
             {/* Expense Category Distribution */}
-            <div className={cardStyle}>
-              <div className="space-y-0.5 mb-4">
-                <h3 className={`font-bold text-sm ${titleStyle}`}>Category Breakdown</h3>
-                <p className={`text-[10px] ${textMutedStyle}`}>Distribution of cumulative expense allocations</p>
-              </div>
-
-              {/* Active Category Filter Indicator */}
-              {activeCategoryFilter && (
-                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl px-3 py-1.5 text-[10px] font-semibold animate-fade-in mb-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="truncate max-w-[150px]">Filtered: {categories.find(c => c.id === activeCategoryFilter)?.name || 'Category'}</span>
-                  </div>
-                  <button 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      setActiveCategoryFilter(null); 
-                    }}
-                    className="text-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-300 font-bold px-1 cursor-pointer transition-colors"
-                  >
-                    Clear Filter
-                  </button>
-                </div>
-              )}
-
-              {categoryChartData.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-zinc-500/70 dark:text-zinc-400/60">
-                  <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800/30 flex items-center justify-center mb-3">
-                    <PieIcon size={18} className="text-zinc-400 dark:text-zinc-500" />
-                  </div>
-                  <span className="text-xs font-semibold tracking-tight">No spending data available</span>
-                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 leading-relaxed max-w-[180px]">Logged expenses will populate this visual distribution</p>
-                </div>
-              ) : (
-                <div className="flex flex-col justify-between h-full">
-                  <div 
-                    className="h-44 w-full flex justify-center cursor-pointer relative"
-                    onClick={() => {
-                      if (activeCategoryFilter) {
-                        setActiveCategoryFilter(null);
-                      }
-                    }}
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={categoryChartData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={70}
-                          paddingAngle={2.5}
-                          dataKey="value"
-                          activeIndex={hoveredIndex !== null ? hoveredIndex : categoryChartData.findIndex(c => c.id === activeCategoryFilter)}
-                          activeShape={renderActiveShape}
-                          onMouseEnter={(data, index, event) => {
-                            setHoveredIndex(index);
-                            const entry = categoryChartData[index];
-                            if (!entry) return;
-
-                            const totalSpending = categoryChartData.reduce((sum, c) => sum + c.value, 0);
-                            const percentage = totalSpending > 0 ? Math.round((entry.value / totalSpending) * 100) : 0;
-                            
-                            const clientX = event?.clientX || (event?.changedTouches ? event.changedTouches[0]?.clientX : 0) || 0;
-                            const clientY = event?.clientY || (event?.changedTouches ? event.changedTouches[0]?.clientY : 0) || 0;
-                            if (clientX && clientY) {
-                              setMousePos({ x: clientX, y: clientY });
-                            }
-
-                            setTooltipState({
-                              visible: true,
-                              name: entry.name,
-                              amount: entry.value,
-                              percentage,
-                              color: entry.color
-                            });
-                          }}
-                          onMouseMove={(data, index, event) => {
-                            const clientX = event?.clientX || (event?.changedTouches ? event.changedTouches[0]?.clientX : 0) || 0;
-                            const clientY = event?.clientY || (event?.changedTouches ? event.changedTouches[0]?.clientY : 0) || 0;
-                            if (clientX && clientY) {
-                              setMousePos({ x: clientX, y: clientY });
-                            }
-                          }}
-                          onMouseLeave={() => {
-                            setHoveredIndex(null);
-                            setTooltipState(prev => ({ ...prev, visible: false }));
-                          }}
-                          onClick={(data, index, event) => {
-                            if (event) {
-                              event.stopPropagation();
-                            }
-                            const entry = categoryChartData[index];
-                            if (!entry) return;
-
-                            if (activeCategoryFilter === entry.id) {
-                              setActiveCategoryFilter(null);
-                            } else {
-                              setActiveCategoryFilter(entry.id);
-                              setActiveView('transactions');
-                            }
-                          }}
-                        >
-                          {categoryChartData.map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={entry.color}
-                              style={{ outline: 'none', transition: 'all 200ms ease-out' }}
-                            />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              )}
-            </div>
+            <CategoryBreakdown categoryChartData={categoryChartData} />
           </div>
 
           {/* Budgets / Savings Goals Progress */}
@@ -1188,36 +1020,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
                 To maintain a perfectly balanced budget, ensure that your monthly outgoings never exceed 70% of your total credited income.
               </p>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modern, Floating hover tooltip beside mouse cursor */}
-      {tooltipState.visible && (
-        <div 
-          className="pointer-events-none fixed z-[9999] rounded-2xl border p-3 flex flex-col gap-1 transition-all duration-75 text-left animate-fade-in"
-          style={{
-            left: `${mousePos.x + 16}px`,
-            top: `${mousePos.y + 16}px`,
-            transform: 'translate3d(0, 0, 0)',
-            backgroundColor: isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(12, 12, 14, 0.96)',
-            borderColor: isLight ? '#f4f4f5' : '#27272a',
-            minWidth: '170px',
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.25)'
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tooltipState.color }}></span>
-            <span className={`font-bold text-[11px] tracking-tight truncate max-w-[140px] ${isLight ? 'text-zinc-950' : 'text-zinc-100'}`}>
-              {tooltipState.name}
-            </span>
-          </div>
-          <div className={`text-sm font-extrabold font-mono mt-0.5 ${isLight ? 'text-zinc-900' : 'text-zinc-100'}`}>
-            {formatIndianNumber(tooltipState.amount, currency)}
-          </div>
-          <div className="text-[9px] text-zinc-400 dark:text-zinc-500 font-semibold mt-0.5">
-            {tooltipState.percentage}% of total expenses
           </div>
         </div>
       )}
