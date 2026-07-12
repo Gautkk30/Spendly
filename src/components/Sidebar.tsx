@@ -13,9 +13,10 @@ import {
   LogOut,
   User,
   Trash2,
-  Landmark
+  Landmark,
+  X
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { DEFAULT_AVATAR } from '../data/defaultData';
 
 interface SidebarProps {
@@ -24,7 +25,17 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
-  const { activeView, setActiveView, theme, appName, appLogo, user, logout } = useApp();
+  const { 
+    activeView, 
+    setActiveView, 
+    theme, 
+    appName, 
+    appLogo, 
+    user, 
+    logout,
+    mobileDrawerOpen,
+    setMobileDrawerOpen
+  } = useApp();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   const isLight = theme === 'light';
@@ -75,7 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
   };
 
   return (
-    <motion.aside
+    <>
+      <motion.aside
       animate={{ width: collapsed ? '80px' : '260px' }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className={`hidden md:flex h-screen sticky top-0 flex-col border-r shadow-sm z-30 shrink-0 ${getSidebarBgClass()}`}
@@ -269,6 +281,154 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
         )}
       </div>
     </motion.aside>
+
+      {/* Mobile/Tablet Slide-out Drawer */}
+      <AnimatePresence>
+        {mobileDrawerOpen && (
+          <div className="fixed inset-0 z-50 md:hidden flex">
+            {/* Backdrop overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setMobileDrawerOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            {/* Slide-out drawer panel */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className={`relative flex flex-col h-full w-[280px] max-w-[85vw] border-r shadow-2xl z-50 ${getSidebarBgClass()}`}
+            >
+              {/* Drawer Brand & Close Header */}
+              <div className={`h-16 flex items-center justify-between px-5 border-b shrink-0 ${
+                isLight ? 'border-zinc-200' : 'border-zinc-800/60'
+              }`}>
+                <div className="flex items-center gap-3">
+                  {appLogo ? (
+                    <img src={appLogo} alt="App Logo" className="h-9 w-9 rounded-xl object-cover shadow-sm shrink-0" />
+                  ) : (
+                    <div className="h-9 w-9 rounded-xl bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center shadow-sm shrink-0">
+                      <TrendingUp className="text-white dark:text-zinc-900 h-4 w-4" />
+                    </div>
+                  )}
+                  <span className={`text-xs tracking-wider uppercase ${getLogoTextClass()}`}>
+                    {appName || 'Spendly'}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                    isLight 
+                      ? 'bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-500 hover:text-zinc-900' 
+                      : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                  }`}
+                  title="Close sidebar"
+                >
+                  <X size={14} className="stroke-[2.5]" />
+                </button>
+              </div>
+
+              {/* Navigation Menu Links */}
+              <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+                {menuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeView === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveView(item.id);
+                        setMobileDrawerOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer group relative ${
+                        isActive 
+                          ? isLight
+                            ? 'bg-zinc-100 text-zinc-900 border border-zinc-200/50 shadow-sm'
+                            : 'bg-zinc-900 text-white border border-zinc-800'
+                          : isLight
+                            ? 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50'
+                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30'
+                      }`}
+                    >
+                      {isActive && (
+                        <div className="absolute left-0 w-0.5 h-4 rounded-r bg-emerald-500 dark:bg-zinc-200" />
+                      )}
+                      <Icon 
+                        size={16} 
+                        className={`transition-all ${
+                          isActive 
+                            ? 'text-emerald-500 dark:text-white' 
+                            : isLight 
+                              ? 'text-zinc-400 group-hover:text-zinc-700' 
+                              : 'text-zinc-500 group-hover:text-zinc-300'
+                        }`} 
+                      />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {/* Dynamic User Profile / Logout Section at the Bottom */}
+              <div className={`p-4 border-t flex flex-col gap-3 relative ${
+                isLight ? 'border-zinc-200' : 'border-zinc-800/60'
+              }`}>
+                {/* Profile panel display */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <img 
+                    src={user?.avatarUrl || defaultAvatar} 
+                    alt={`${user?.name || 'User'} avatar`} 
+                    className="h-9 w-9 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-800 shrink-0"
+                  />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-bold text-xs truncate">{user?.name || 'User'}</span>
+                    <span className={`text-[10px] truncate ${isLight ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                      {user?.email || 'user@example.com'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`h-px ${isLight ? 'bg-zinc-100' : 'bg-zinc-800/50'}`} />
+
+                {/* Direct clean Settings & Logout actions */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setActiveView('settings');
+                      setMobileDrawerOpen(false);
+                    }}
+                    className={`flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold rounded-xl border transition-colors cursor-pointer ${
+                      isLight 
+                        ? 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-700' 
+                        : 'bg-zinc-900/40 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+                    }`}
+                  >
+                    <Settings size={12} />
+                    <span>Settings</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setMobileDrawerOpen(false);
+                    }}
+                    className="flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold rounded-xl bg-red-500/10 text-red-500 border border-red-500/10 hover:bg-red-500 hover:text-white transition-all cursor-pointer"
+                  >
+                    <LogOut size={12} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

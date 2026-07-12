@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   Info,
   CalendarCheck,
-  Loader2
+  Loader2,
+  Menu
 } from 'lucide-react';
 import { CURRENCIES } from '../data/defaultData';
 import { CurrencyCode } from '../types';
@@ -39,7 +40,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
     appName,
     appLogo,
     isSaving,
-    isOffline
+    isOffline,
+    wallets,
+    setMobileDrawerOpen
   } = useApp();
 
   const [notifOpen, setNotifOpen] = useState(false);
@@ -74,18 +77,29 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
 
   return (
     <header className={`h-16 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 backdrop-blur-xl border-b ${getHeaderBgClass()}`}>
-      {/* Brand logo/name only visible on mobile (since sidebar is hidden) */}
-      <div className="flex md:hidden items-center gap-2.5 mr-3 shrink-0">
+      {/* Brand logo/name & Hamburger Menu only visible on mobile (since sidebar is hidden) */}
+      <div className="flex md:hidden items-center gap-2 mr-3 shrink-0">
+        <button
+          onClick={() => setMobileDrawerOpen(true)}
+          className={`mr-1 p-1.5 rounded-xl border transition-all cursor-pointer ${
+            isLight
+              ? 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600'
+              : 'bg-zinc-900/60 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+          }`}
+          aria-label="Open menu"
+        >
+          <Menu size={15} className="stroke-[2.5]" />
+        </button>
         {appLogo ? (
-          <img src={appLogo} alt="App Logo" className="h-9 w-9 rounded-xl object-cover ring-1 ring-zinc-800" />
+          <img src={appLogo} alt="App Logo" className="h-8 w-8 rounded-xl object-cover ring-1 ring-zinc-800" />
         ) : (
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 flex items-center justify-center shadow-md">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 flex items-center justify-center shadow-md">
             <div className="w-full h-full rounded-[10px] bg-zinc-950 flex items-center justify-center">
-              <span className="text-xs font-black bg-gradient-to-tr from-emerald-400 to-teal-300 bg-clip-text text-transparent">S</span>
+              <span className="text-[10px] font-black bg-gradient-to-tr from-emerald-400 to-teal-300 bg-clip-text text-transparent">S</span>
             </div>
           </div>
         )}
-        <span className={`text-[12px] font-extrabold tracking-wider uppercase ${
+        <span className={`text-[11px] font-black tracking-wider uppercase hidden xs:block ${
           theme === 'light' ? 'text-zinc-900' : 'text-zinc-100'
         }`}>
           {appName || 'Spendly'}
@@ -162,44 +176,48 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
       {/* Right Control Actions */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Quick Actions Buttons (Hidden on mobile) */}
-        <div className="hidden sm:flex items-center gap-2">
-          <button 
-            onClick={onOpenOCR}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
-              isLight
-                ? 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200 shadow-sm'
-                : 'bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border-zinc-800'
-            }`}
-          >
-            <Scan size={13} className={isLight ? 'text-zinc-500' : 'text-zinc-400'} />
-            <span>Scan Receipt</span>
-          </button>
-          
-          <button 
-            onClick={onOpenAddTx}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer ${
-              isLight
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
-                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950'
-            }`}
-          >
-            <Plus size={13} className="stroke-[2.5]" />
-            <span>Add Transaction</span>
-          </button>
-        </div>
+        {wallets.length > 0 && (
+          <div className="hidden sm:flex items-center gap-2">
+            <button 
+              onClick={onOpenOCR}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                isLight
+                  ? 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200 shadow-sm'
+                  : 'bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border-zinc-800'
+              }`}
+            >
+              <Scan size={13} className={isLight ? 'text-zinc-500' : 'text-zinc-400'} />
+              <span>Scan Receipt</span>
+            </button>
+            
+            <button 
+              onClick={onOpenAddTx}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer ${
+                isLight
+                  ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950'
+              }`}
+            >
+              <Plus size={13} className="stroke-[2.5]" />
+              <span>Add Transaction</span>
+            </button>
+          </div>
+        )}
 
         {/* Scan Shortcut for Mobile ONLY */}
-        <button 
-          onClick={onOpenOCR}
-          className={`sm:hidden p-1.5 rounded-xl border transition-all cursor-pointer ${
-            isLight
-              ? 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600'
-              : 'bg-zinc-900/60 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
-          }`}
-          title="Scan Receipt with AI"
-        >
-          <Scan size={14} />
-        </button>
+        {wallets.length > 0 && (
+          <button 
+            onClick={onOpenOCR}
+            className={`sm:hidden p-1.5 rounded-xl border transition-all cursor-pointer ${
+              isLight
+                ? 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600'
+                : 'bg-zinc-900/60 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+            }`}
+            title="Scan Receipt with AI"
+          >
+            <Scan size={14} />
+          </button>
+        )}
 
         {/* Vertical Divider */}
         <div className={`h-4 w-px ${isLight ? 'bg-zinc-200' : 'bg-zinc-800'}`} />

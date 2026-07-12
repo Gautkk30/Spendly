@@ -14,14 +14,14 @@ interface BottomNavigationProps {
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onOpenAddTx }) => {
-  const { activeView, setActiveView, theme } = useApp();
+  const { activeView, setActiveView, theme, wallets } = useApp();
 
   const isLight = theme === 'light';
 
   const navItems = [
     { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
     { id: 'transactions', label: 'Ledger', icon: ArrowLeftRight },
-    { id: 'add_trigger', label: 'Add', icon: Plus, isAction: true },
+    ...(wallets.length > 0 ? [{ id: 'add_trigger', label: 'Add', icon: Plus, isAction: true }] : []),
     { id: 'budgets', label: 'Budgets', icon: PieChart },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];

@@ -61,12 +61,12 @@ class Database {
     this.data = {
       user: INITIAL_USER,
       users: [INITIAL_USER],
-      wallets: INITIAL_WALLETS,
+      wallets: [],
       categories: DEFAULT_CATEGORIES,
-      transactions: INITIAL_TRANSACTIONS,
-      budgets: INITIAL_BUDGETS,
-      goals: INITIAL_GOALS,
-      notifications: INITIAL_NOTIFICATIONS,
+      transactions: [],
+      budgets: [],
+      goals: [],
+      notifications: [],
       appConfig: {
         appName: 'Spendly',
         appLogo: ''
@@ -85,6 +85,7 @@ class Database {
       } else {
         console.log('[Spendly] MONGODB_URI is not configured. Falling back to local db.json mock database for development.');
         this.data = this.loadLocal();
+        this.migrateDefaultAccounts();
         return;
       }
     }
@@ -100,6 +101,7 @@ class Database {
 
       // Load data from MongoDB
       await this.loadFromMongo();
+      this.migrateDefaultAccounts();
     } catch (err: any) {
       console.error('[Spendly] Failed to connect to MongoDB:', err);
       if (isProduction) {
@@ -108,8 +110,89 @@ class Database {
       } else {
         console.log('[Spendly] Reverting to local db.json mock database for local development.');
         this.data = this.loadLocal();
+        this.migrateDefaultAccounts();
       }
     }
+  }
+
+  public migrateDefaultAccounts(): void {
+    if (!this.data.users) {
+      this.data.users = [this.data.user];
+    }
+    
+    // Assign any orphaned data to 'usr-101'
+    this.data.wallets.forEach(w => {
+      if (!(w as any).userId) (w as any).userId = 'usr-101';
+    });
+    this.data.transactions.forEach(t => {
+      if (!(t as any).userId) (t as any).userId = 'usr-101';
+    });
+    this.data.budgets.forEach(b => {
+      if (!(b as any).userId) (b as any).userId = 'usr-101';
+    });
+    this.data.goals.forEach(g => {
+      if (!(g as any).userId) (g as any).userId = 'usr-101';
+    });
+    this.data.notifications.forEach(n => {
+      if (!(n as any).userId) (n as any).userId = 'usr-101';
+    });
+
+    const defaultWalletNames = [
+      "HDFC Checking", "ICICI Savings", "Cash Wallet", "Amex Gold", 
+      "Cash", "Bank", "Default Wallet", "HDFC Checking (Migrated)",
+      "ICICI Savings (Migrated)", "Cash Wallet (Migrated)", "Amex Gold (Migrated)"
+    ];
+    const defaultWalletIds = ["w-main", "w-savings", "w-cash", "w-credit"];
+
+    this.data.users.forEach(user => {
+      const userId = user.id;
+
+      // Filter active (non-deleted) wallets for this user
+      const userWallets = this.data.wallets.filter(w => 
+        (w as any).userId === userId && !w.isDeleted
+      );
+
+      userWallets.forEach(wallet => {
+        const isDefault = defaultWalletIds.includes(wallet.id) || defaultWalletNames.includes(wallet.name);
+        if (!isDefault) return;
+
+        // Check if there are transactions referencing this default wallet
+        const hasTxs = this.data.transactions.some(t => t.walletId === wallet.id && !t.isDeleted);
+
+        if (hasTxs) {
+          // Create a new real user-owned wallet
+          const newWalletId = `w-user-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+          const migratedWallet: Wallet = {
+            id: newWalletId,
+            name: wallet.name.endsWith(" (Migrated)") ? wallet.name : `${wallet.name} (Migrated)`,
+            balance: wallet.balance,
+            type: wallet.type,
+            currency: wallet.currency || 'INR',
+            createdAt: wallet.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isDeleted: false,
+            userId: userId as any
+          };
+          this.data.wallets.push(migratedWallet);
+
+          // Update transactions referencing the default wallet to point to the new wallet ID
+          this.data.transactions.forEach(t => {
+            if (t.walletId === wallet.id) {
+              t.walletId = newWalletId;
+            }
+          });
+
+          console.log(`[Migration] Created real user-owned wallet "${migratedWallet.name}" (${newWalletId}) for user ${userId} and migrated transactions.`);
+        }
+
+        // Remove the default wallet from data
+        wallet.isDeleted = true;
+        this.data.wallets = this.data.wallets.filter(w => w.id !== wallet.id);
+        console.log(`[Migration] Cleaned default wallet "${wallet.name}" for user ${userId}`);
+      });
+    });
+
+    this.save();
   }
 
   private loadLocal(): DatabaseSchema {
@@ -189,12 +272,12 @@ class Database {
     const defaultDB: DatabaseSchema = {
       user: INITIAL_USER,
       users: [INITIAL_USER],
-      wallets: INITIAL_WALLETS,
+      wallets: [],
       categories: DEFAULT_CATEGORIES,
-      transactions: INITIAL_TRANSACTIONS,
-      budgets: INITIAL_BUDGETS,
-      goals: INITIAL_GOALS,
-      notifications: INITIAL_NOTIFICATIONS,
+      transactions: [],
+      budgets: [],
+      goals: [],
+      notifications: [],
       appConfig: {
         appName: 'Spendly',
         appLogo: ''
@@ -251,12 +334,12 @@ class Database {
       const seedData: DatabaseSchema = {
         user: INITIAL_USER,
         users: [INITIAL_USER],
-        wallets: INITIAL_WALLETS,
+        wallets: [],
         categories: DEFAULT_CATEGORIES,
-        transactions: INITIAL_TRANSACTIONS,
-        budgets: INITIAL_BUDGETS,
-        goals: INITIAL_GOALS,
-        notifications: INITIAL_NOTIFICATIONS,
+        transactions: [],
+        budgets: [],
+        goals: [],
+        notifications: [],
         appConfig: {
           appName: 'Spendly',
           appLogo: ''
@@ -534,19 +617,6 @@ class Database {
     
     this.data.users.push(newUser);
 
-    // Seed empty onboarding wallets with zero balance for the new account
-    const walletMapping: Record<string, string> = {};
-    INITIAL_WALLETS.forEach(w => {
-      const newWId = `w-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-      walletMapping[w.id] = newWId;
-      this.data.wallets.push({
-        ...w,
-        id: newWId,
-        balance: 0.0,
-        userId: newUserId as any
-      });
-    });
-
     this.data.notifications.unshift({
       id: `nt-${Date.now()}`,
       title: 'Welcome to Spendly! 🎉',
@@ -580,7 +650,7 @@ class Database {
   }
 
   public updateWallet(userId: string, id: string, update: Partial<Wallet>): Wallet | null {
-    const idx = this.data.wallets.findIndex(w => w.id === id && (w as any).userId === userId);
+    const idx = this.data.wallets.findIndex(w => w.id === id && ((w as any).userId === userId || (!(w as any).userId && userId === 'usr-101')));
     if (idx === -1) return null;
     this.data.wallets[idx] = { 
       ...this.data.wallets[idx], 
@@ -592,7 +662,7 @@ class Database {
   }
 
   public deleteWallet(userId: string, id: string): boolean {
-    const wallet = this.data.wallets.find(w => w.id === id && (w as any).userId === userId);
+    const wallet = this.data.wallets.find(w => w.id === id && ((w as any).userId === userId || (!(w as any).userId && userId === 'usr-101')));
     if (!wallet) return false;
     
     wallet.isDeleted = true;
@@ -602,7 +672,8 @@ class Database {
 
     // Soft delete all transactions belonging to this wallet
     this.data.transactions.forEach(t => {
-      if (t.walletId === id && (t as any).userId === userId && !t.isDeleted) {
+      const isOwner = (t as any).userId === userId || (!(t as any).userId && userId === 'usr-101');
+      if (t.walletId === id && isOwner && !t.isDeleted) {
         t.isDeleted = true;
         t.deletedAt = wallet.deletedAt;
         t.deletedBy = userId;
@@ -633,7 +704,7 @@ class Database {
   }
 
   public updateCategory(userId: string, id: string, update: Partial<Category>): Category | null {
-    const idx = this.data.categories.findIndex(c => c.id === id && (!c.isCustom || (c as any).userId === userId));
+    const idx = this.data.categories.findIndex(c => c.id === id && (!c.isCustom || (c as any).userId === userId || (!(c as any).userId && userId === 'usr-101')));
     if (idx === -1) return null;
     this.data.categories[idx] = { 
       ...this.data.categories[idx], 
@@ -645,7 +716,7 @@ class Database {
   }
 
   public deleteCategory(userId: string, id: string): boolean {
-    const category = this.data.categories.find(c => c.id === id && c.isCustom && (c as any).userId === userId);
+    const category = this.data.categories.find(c => c.id === id && c.isCustom && ((c as any).userId === userId || (!(c as any).userId && userId === 'usr-101')));
     if (!category) return false;
 
     category.isDeleted = true;
@@ -718,14 +789,14 @@ class Database {
   }
 
   public updateTransaction(userId: string, id: string, update: Partial<Transaction>): Transaction | null {
-    const idx = this.data.transactions.findIndex(t => t.id === id && (t as any).userId === userId);
+    const idx = this.data.transactions.findIndex(t => t.id === id && ((t as any).userId === userId || (!(t as any).userId && userId === 'usr-101')));
     if (idx === -1) return null;
     
     const oldTx = this.data.transactions[idx];
     
     // Revert old transaction's impact if it was not already deleted
     if (!oldTx.isDeleted) {
-      const oldWallet = this.data.wallets.find(w => w.id === oldTx.walletId && (w as any).userId === userId);
+      const oldWallet = this.data.wallets.find(w => w.id === oldTx.walletId && ((w as any).userId === userId || (!(w as any).userId && userId === 'usr-101')));
       if (oldWallet) {
         if (oldTx.type === 'income') {
           oldWallet.balance -= oldTx.amount;
@@ -737,7 +808,9 @@ class Database {
 
       if (oldTx.type === 'expense') {
         const oldBudget = this.data.budgets.find(b => 
-          (b.categoryId === oldTx.categoryId || b.categoryId === 'all') && (b as any).userId === userId && !b.isDeleted
+          (b.categoryId === oldTx.categoryId || b.categoryId === 'all') && 
+          ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101')) && 
+          !b.isDeleted
         );
         if (oldBudget) {
           oldBudget.spent = Math.max(0, oldBudget.spent - oldTx.amount);
@@ -755,7 +828,7 @@ class Database {
 
     // Apply new transaction's impact if it is not soft-deleted
     if (!updatedTx.isDeleted) {
-      const newWallet = this.data.wallets.find(w => w.id === updatedTx.walletId && (w as any).userId === userId);
+      const newWallet = this.data.wallets.find(w => w.id === updatedTx.walletId && ((w as any).userId === userId || (!(w as any).userId && userId === 'usr-101')));
       if (newWallet) {
         if (updatedTx.type === 'income') {
           newWallet.balance += updatedTx.amount;
@@ -767,7 +840,9 @@ class Database {
 
       if (updatedTx.type === 'expense') {
         const newBudget = this.data.budgets.find(b => 
-          (b.categoryId === updatedTx.categoryId || b.categoryId === 'all') && (b as any).userId === userId && !b.isDeleted
+          (b.categoryId === updatedTx.categoryId || b.categoryId === 'all') && 
+          ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101')) && 
+          !b.isDeleted
         );
         if (newBudget) {
           newBudget.spent += updatedTx.amount;
@@ -781,7 +856,7 @@ class Database {
   }
 
   public deleteTransaction(userId: string, id: string): boolean {
-    const tx = this.data.transactions.find(t => t.id === id && (t as any).userId === userId);
+    const tx = this.data.transactions.find(t => t.id === id && ((t as any).userId === userId || (!(t as any).userId && userId === 'usr-101')));
     if (!tx || tx.isDeleted) return false;
 
     tx.isDeleted = true;
@@ -790,7 +865,7 @@ class Database {
     tx.updatedAt = new Date().toISOString();
 
     // Revert balance on delete
-    const wallet = this.data.wallets.find(w => w.id === tx.walletId && (w as any).userId === userId);
+    const wallet = this.data.wallets.find(w => w.id === tx.walletId && ((w as any).userId === userId || (!(w as any).userId && userId === 'usr-101')));
     if (wallet) {
       if (tx.type === 'income') {
         wallet.balance -= tx.amount;
@@ -803,7 +878,9 @@ class Database {
     // Revert budget on delete
     if (tx.type === 'expense') {
       const budget = this.data.budgets.find(b => 
-        (b.categoryId === tx.categoryId || b.categoryId === 'all') && (b as any).userId === userId && !b.isDeleted
+        (b.categoryId === tx.categoryId || b.categoryId === 'all') && 
+        ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101')) && 
+        !b.isDeleted
       );
       if (budget) {
         budget.spent = Math.max(0, budget.spent - tx.amount);
@@ -852,7 +929,7 @@ class Database {
   }
 
   public deleteBudget(userId: string, id: string): boolean {
-    const budget = this.data.budgets.find(b => b.id === id && (b as any).userId === userId);
+    const budget = this.data.budgets.find(b => b.id === id && ((b as any).userId === userId || (!(b as any).userId && userId === 'usr-101')));
     if (!budget || budget.isDeleted) return false;
 
     budget.isDeleted = true;
@@ -883,7 +960,7 @@ class Database {
   }
 
   public updateGoal(userId: string = 'usr-101', id: string, update: Partial<Goal>): Goal | null {
-    const idx = this.data.goals.findIndex(g => g.id === id && (g as any).userId === userId);
+    const idx = this.data.goals.findIndex(g => g.id === id && ((g as any).userId === userId || (!(g as any).userId && userId === 'usr-101')));
     if (idx === -1) return null;
     
     const oldGoal = this.data.goals[idx];
@@ -910,7 +987,7 @@ class Database {
   }
 
   public deleteGoal(userId: string, id: string): boolean {
-    const goal = this.data.goals.find(g => g.id === id && (g as any).userId === userId);
+    const goal = this.data.goals.find(g => g.id === id && ((g as any).userId === userId || (!(g as any).userId && userId === 'usr-101')));
     if (!goal || goal.isDeleted) return false;
 
     goal.isDeleted = true;
