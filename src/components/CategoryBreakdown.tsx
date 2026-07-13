@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatIndianNumber } from '../utils/format';
+import { CURRENCIES } from '../data/defaultData';
 import { PieChart as PieIcon } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -26,12 +27,12 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
     currency, 
     theme, 
     activeCategoryFilter, 
-    setActiveCategoryFilter 
+    setActiveCategoryFilter,
+    transactions,
+    wallets
   } = useApp();
 
-  const [cardPosition, setCardPosition] = useState<{ x: number, y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   const isLight = theme === 'light';
   const cardStyle = isLight 
@@ -65,18 +66,10 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
     );
   };
 
-  // Synchronize state when activeCategoryFilter changes from elsewhere (e.g., cleared)
-  useEffect(() => {
-    if (activeCategoryFilter === null) {
-      setCardPosition(null);
-    }
-  }, [activeCategoryFilter]);
-
-  // Handle outside click, escape key, window resize, and scroll to dismiss
+  // Handle outside click, escape key, and window resize to dismiss
   useEffect(() => {
     const dismissAll = () => {
       setActiveCategoryFilter(null);
-      setCardPosition(null);
     };
 
     const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
@@ -94,15 +87,12 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
     document.addEventListener('mousedown', handleOutsideClick);
     document.addEventListener('touchstart', handleOutsideClick, { passive: true });
     document.addEventListener('keydown', handleKeyDown);
-
-    window.addEventListener('scroll', dismissAll, { passive: true });
     window.addEventListener('resize', dismissAll);
 
     return () => {
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('touchstart', handleOutsideClick);
       document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('scroll', dismissAll);
       window.removeEventListener('resize', dismissAll);
     };
   }, [setActiveCategoryFilter]);
@@ -119,59 +109,9 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
     if (activeCategoryFilter === entry.id) {
       // Toggle off if clicking the same active slice
       setActiveCategoryFilter(null);
-      setCardPosition(null);
     } else {
       // Set the active filter globally
       setActiveCategoryFilter(entry.id);
-
-      // Extract details to calculate visual midpoint positioning of selected slice
-      const angle = data.midAngle;
-      const cx = data.cx ?? 100;
-      const cy = data.cy ?? 100;
-      const outerRadius = data.outerRadius ?? 70;
-
-      const rad = Math.PI / 180;
-      const angleRad = -angle * rad;
-      const cos = Math.cos(angleRad);
-      const sin = Math.sin(angleRad);
-
-      // Offset position slightly outwards from outer radius
-      const offsetDist = outerRadius + 20; 
-      const targetX = cx + offsetDist * cos;
-      const targetY = cy + offsetDist * sin;
-
-      const cardWidth = 180;
-      const cardHeight = 100;
-
-      let posX = targetX;
-      // Adjust alignments based on quadrants so the card is pushed outwards away from the slice
-      if (cos > 0.3) {
-        posX = targetX + 5;
-      } else if (cos < -0.3) {
-        posX = targetX - cardWidth - 5;
-      } else {
-        posX = targetX - (cardWidth / 2);
-      }
-
-      let posY = targetY;
-      if (sin > 0.3) {
-        posY = targetY + 5;
-      } else if (sin < -0.3) {
-        posY = targetY - cardHeight - 5;
-      } else {
-        posY = targetY - (cardHeight / 2);
-      }
-
-      // Clamp coordinates perfectly inside container limits to guarantee no overflows
-      if (chartContainerRef.current) {
-        const W = chartContainerRef.current.clientWidth || 300;
-        const H = chartContainerRef.current.clientHeight || 176;
-        
-        posX = Math.max(8, Math.min(posX, W - cardWidth - 8));
-        posY = Math.max(8, Math.min(posY, H - cardHeight - 8));
-      }
-
-      setCardPosition({ x: posX, y: posY });
     }
   };
 
@@ -179,9 +119,67 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
     ? categoryChartData.findIndex(c => c.id === activeCategoryFilter) 
     : -1;
 
+  // Let's compute selected category analytics
+  const analytics = React.useMemo(() => {
+    if (activeCategoryFilter === null) return null;
+
+    const entry = categoryChartData[selectedIndex];
+    if (!entry) return null;
+
+    const cat = categories.find(c => c.id === activeCategoryFilter);
+    const matchingTx = transactions.filter(t => t.type === 'expense' && t.categoryId === activeCategoryFilter);
+
+    // Rate conversions
+    const getConvertedAmount = (tx: typeof transactions[0]) => {
+      const wallet = wallets.find(w => w.id === tx.walletId);
+      const rateToUSD = CURRENCIES[wallet?.currency || 'USD']?.rate || 1.0;
+      const amountInUSD = tx.amount / rateToUSD;
+      const displayRate = CURRENCIES[currency]?.rate || 1.0;
+      return amountInUSD * displayRate;
+    };
+
+    const totalSpending = categoryChartData.reduce((sum, c) => sum + c.value, 0);
+    const percentage = totalSpending > 0 ? Math.round((entry.value / totalSpending) * 100) : 0;
+
+    let totalAmount = 0;
+    let maxAmt = -1;
+    let minAmt = Infinity;
+    let largestTx: typeof transactions[0] | null = null;
+    let smallestTx: typeof transactions[0] | null = null;
+
+    matchingTx.forEach(tx => {
+      const amt = getConvertedAmount(tx);
+      totalAmount += amt;
+
+      if (amt > maxAmt) {
+        maxAmt = amt;
+        largestTx = tx;
+      }
+      if (amt < minAmt) {
+        minAmt = amt;
+        smallestTx = tx;
+      }
+    });
+
+    const count = matchingTx.length;
+    const average = count > 0 ? totalAmount / count : 0;
+
+    return {
+      name: entry.name,
+      color: entry.color,
+      icon: cat?.icon || 'HelpCircle',
+      total: entry.value, // Keep consistent with chart value
+      percentage,
+      count,
+      average,
+      largest: largestTx ? { amount: maxAmt, merchant: largestTx.merchant } : null,
+      smallest: smallestTx ? { amount: minAmt, merchant: smallestTx.merchant } : null
+    };
+  }, [activeCategoryFilter, selectedIndex, categoryChartData, categories, transactions, wallets, currency]);
+
   return (
     <div id="category-breakdown-card" className={cardStyle} ref={containerRef}>
-      <div className="space-y-0.5 mb-4">
+      <div className="space-y-0.5 mb-6">
         <h3 className={`font-bold text-sm ${titleStyle}`}>Category Breakdown</h3>
         <p className={`text-[10px] ${textMutedStyle}`}>Distribution of cumulative expense allocations</p>
       </div>
@@ -198,9 +196,8 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
             onClick={(e) => { 
               e.stopPropagation(); 
               setActiveCategoryFilter(null); 
-              setCardPosition(null);
             }}
-            className="text-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-300 font-bold px-1 cursor-pointer transition-colors"
+            className="text-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-300 font-bold px-1 cursor-pointer transition-colors text-[10px]"
           >
             Clear Filter
           </button>
@@ -218,15 +215,14 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
       ) : (
         <div 
           id="category-breakdown-chart-container" 
-          ref={chartContainerRef}
-          className="flex flex-col justify-between h-full relative min-h-[176px]"
+          className="grid grid-cols-1 md:grid-cols-1 xl:grid-cols-12 gap-6 items-stretch flex-1"
         >
+          {/* Left Column: Donut Chart */}
           <div 
-            className="h-44 w-full flex justify-center cursor-pointer relative"
+            className="xl:col-span-5 h-44 flex justify-center cursor-pointer relative items-center"
             onClick={() => {
               if (activeCategoryFilter) {
                 setActiveCategoryFilter(null);
-                setCardPosition(null);
               }
             }}
           >
@@ -261,56 +257,113 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
             </ResponsiveContainer>
           </div>
 
-          {/* Floating selected category information card */}
-          {activeCategoryFilter && cardPosition && (() => {
-            const activeIndex = categoryChartData.findIndex(c => c.id === activeCategoryFilter);
-            if (activeIndex === -1) return null;
-            const entry = categoryChartData[activeIndex];
-            const totalSpending = categoryChartData.reduce((sum, c) => sum + c.value, 0);
-            const percentage = totalSpending > 0 ? Math.round((entry.value / totalSpending) * 100) : 0;
-            const cat = categories.find(c => c.id === entry.id);
-
-            return (
-              <div 
-                id="category-selected-info-card"
-                className={`absolute rounded-2xl border p-3.5 flex flex-col gap-1.5 text-left transition-all duration-200 ease-out z-[999] shadow-xl ${
-                  isLight 
-                    ? 'bg-white border-zinc-100 text-zinc-900 shadow-zinc-200/50' 
-                    : 'bg-zinc-950 border-zinc-850 text-zinc-100 shadow-black/40'
-                }`}
-                style={{
-                  left: `${cardPosition.x}px`,
-                  top: `${cardPosition.y}px`,
-                  width: '180px',
-                  backdropFilter: 'blur(12px)',
-                  willChange: 'left, top',
-                  pointerEvents: 'auto'
-                }}
-                onClick={(e) => e.stopPropagation()} // Prevent dismiss when clicking the card itself
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`h-6 w-6 rounded-lg border flex items-center justify-center shrink-0 ${
-                    isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-900 border-zinc-800'
-                  }`}>
-                    <DynamicIcon 
-                      name={cat?.icon || 'HelpCircle'} 
-                      className={isLight ? 'text-zinc-600' : 'text-zinc-400'} 
-                      size={12} 
-                    />
+          {/* Right Column: Analytics Panel */}
+          <div className="xl:col-span-7 flex flex-col justify-center min-h-[220px]">
+            {analytics ? (
+              <div className="space-y-3.5 animate-fade-in text-left">
+                {/* Category Header */}
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 shadow-sm"
+                    style={{ 
+                      backgroundColor: `${analytics.color}15`, 
+                      borderColor: `${analytics.color}35`,
+                      color: analytics.color
+                    }}
+                  >
+                    <DynamicIcon name={analytics.icon} size={16} />
                   </div>
-                  <span className="font-bold text-[11px] tracking-tight truncate max-w-[130px]">
-                    {entry.name}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className={`text-xs font-bold truncate max-w-[120px] ${titleStyle}`}>{analytics.name}</h4>
+                      <span 
+                        className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{ 
+                          backgroundColor: `${analytics.color}18`, 
+                          color: analytics.color 
+                        }}
+                      >
+                        {analytics.percentage}%
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-zinc-400 font-semibold">Active filter applied</p>
+                  </div>
                 </div>
-                <div className="text-sm font-extrabold font-mono mt-0.5">
-                  {formatIndianNumber(entry.value, currency)}
+
+                {/* Main Total Value Card */}
+                <div className={`p-3 rounded-2xl border ${
+                  isLight ? 'bg-zinc-50 border-zinc-150' : 'bg-zinc-900/30 border-zinc-800'
+                }`}>
+                  <span className={`text-[8px] font-bold uppercase tracking-wider ${textMutedStyle}`}>Total Outflow</span>
+                  <div className="text-base font-extrabold font-mono text-red-500 mt-0.5">
+                    {formatIndianNumber(analytics.total, currency)}
+                  </div>
                 </div>
-                <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold mt-0.5">
-                  {percentage}% of total expenses
+
+                {/* Grid of Transaction Metrics */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`p-2.5 rounded-xl border flex flex-col ${
+                    isLight ? 'bg-zinc-50/50 border-zinc-100' : 'bg-zinc-900/10 border-zinc-850'
+                  }`}>
+                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider">Transactions</span>
+                    <span className={`text-xs font-extrabold font-mono mt-0.5 ${titleStyle}`}>{analytics.count} txs</span>
+                  </div>
+                  <div className={`p-2.5 rounded-xl border flex flex-col ${
+                    isLight ? 'bg-zinc-50/50 border-zinc-100' : 'bg-zinc-900/10 border-zinc-850'
+                  }`}>
+                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider">Avg Amount</span>
+                    <span className={`text-xs font-extrabold font-mono mt-0.5 ${titleStyle}`}>
+                      {formatIndianNumber(Math.round(analytics.average), currency)}
+                    </span>
+                  </div>
+                  <div className={`p-2.5 rounded-xl border flex flex-col col-span-2 ${
+                    isLight ? 'bg-zinc-50/50 border-zinc-100' : 'bg-zinc-900/10 border-zinc-850'
+                  }`}>
+                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider">Largest Tx</span>
+                    {analytics.largest ? (
+                      <div className="flex justify-between items-center mt-0.5 min-w-0">
+                        <span className={`text-[10px] font-bold truncate max-w-[120px] ${titleStyle}`}>
+                          {analytics.largest.merchant}
+                        </span>
+                        <span className="text-xs font-extrabold font-mono text-red-500 shrink-0 ml-2">
+                          {formatIndianNumber(Math.round(analytics.largest.amount), currency)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-zinc-500 font-semibold mt-0.5">—</span>
+                    )}
+                  </div>
+                  <div className={`p-2.5 rounded-xl border flex flex-col col-span-2 ${
+                    isLight ? 'bg-zinc-50/50 border-zinc-100' : 'bg-zinc-900/10 border-zinc-850'
+                  }`}>
+                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider">Smallest Tx</span>
+                    {analytics.smallest ? (
+                      <div className="flex justify-between items-center mt-0.5 min-w-0">
+                        <span className={`text-[10px] font-bold truncate max-w-[120px] ${titleStyle}`}>
+                          {analytics.smallest.merchant}
+                        </span>
+                        <span className="text-xs font-extrabold font-mono text-red-500 shrink-0 ml-2">
+                          {formatIndianNumber(Math.round(analytics.smallest.amount), currency)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-zinc-500 font-semibold mt-0.5">—</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            );
-          })()}
+            ) : (
+              <div className={`flex flex-col items-center justify-center p-6 text-center border-2 border-dashed rounded-2xl min-h-[220px] ${
+                isLight ? 'bg-zinc-50/20 border-zinc-200 text-zinc-400' : 'bg-zinc-950/20 border-zinc-850 text-zinc-500'
+              }`}>
+                <PieIcon size={24} className="mb-2 text-zinc-300 dark:text-zinc-650" />
+                <span className={`text-xs font-bold ${titleStyle}`}>Select a category</span>
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-[180px] leading-relaxed">
+                  Click any slice on the chart to filter list & explore cumulative insights.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
