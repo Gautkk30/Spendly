@@ -30,7 +30,7 @@ Track expenses, manage accounts, create budgets, monitor savings goals, and gain
 Live Demo
 </a>
 •
-<a href="YOUR_GITHUB_REPO">
+<a href="https://github.com/Gautkk30/Spendly">
 Source Code
 </a>
 
