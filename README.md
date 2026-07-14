@@ -48,37 +48,37 @@ It enables users to securely manage accounts, track income and expenses, organiz
 
 ## Dashboard
 
-<img src="assets/dashboard.png"/>
+<img src="Spendly_GitHub_Assets/assets/dashboard.png"/>
 
 ---
 
 ## Accounts
 
-<img src="assets/accounts.png"/>
+<img src="Spendly_GitHub_Assets/assets/accounts.png"/>
 
 ---
 
 ## Transactions
 
-<img src="assets/transactions.png"/>
+<img src="Spendly_GitHub_Assets/assets/transactions.png"/>
 
 ---
 
 ## Categories
 
-<img src="assets/categories.png"/>
+<img src="Spendly_GitHub_Assets/assets/categories.png"/>
 
 ---
 
 ## Settings
 
-<img src="assets/settings.png"/>
+<img src="Spendly_GitHub_Assets/assets/settings.png"/>
 
 ---
 
 ## Analytics
 
-<img src="assets/analytics.png"/>
+<img src="Spendly_GitHub_Assets/assets/analytics.png"/>
 
 ---
 
