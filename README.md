@@ -1,4 +1,4 @@
-# <img src="assets/logo.png" width="38" align="center"/> Spendly
+# <img src="Spendly_GitHub_Assets/assets/ChatGPT Image Jul 11, 2026, 04_29_04 PM.png" width="38" align="center"/> Spendly
 
 <p align="center">
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white"/>
