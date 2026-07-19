@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -20,6 +20,8 @@ import { CommandPalette } from './components/CommandPalette';
 import { WelcomeTour } from './components/WelcomeTour';
 import PWAManager from './components/PWAManager';
 import { AuroraBackground } from './components/AuroraBackground';
+import { DEFAULT_APPEARANCE } from './types';
+
 
 const appAnimationVariants = {
   loading: {
@@ -136,17 +138,90 @@ function DashboardLayout() {
   // Hold active transaction being edited
   const [editingTx, setEditingTx] = useState<any | null>(null);
 
-  // Mouse Tracking for Radial Glow Follow Effect
-  const [mousePos, setMousePos] = useState({ x: -200, y: -200 });
-  const [isHovered, setIsHovered] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setMousePos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-  };
+  // Hardware-accelerated GPU mouse glow and layout styling variables synced to Appearance Settings
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const settings = {
+      ...DEFAULT_APPEARANCE,
+      ...(user?.appearanceSettings || {}),
+    };
+
+    const { cardTransparency, blurStrength, mouseInteraction, uiDensity, cornerRadius, accentColor } = settings;
+
+    // Apply card transparency custom variables
+    const transLight = cardTransparency / 100;
+    const transDark = Math.min(0.8, (cardTransparency / 100) * 0.75); // elegant darker ratio
+    const blurPx = blurStrength === 'low' ? '4px' : blurStrength === 'medium' ? '12px' : '24px';
+
+    container.style.setProperty('--card-transparency-light', `${transLight}`);
+    container.style.setProperty('--card-transparency-dark', `${transDark}`);
+    container.style.setProperty('--card-blur', blurPx);
+
+    // Apply UI density class
+    if (uiDensity === 'compact') {
+      container.classList.add('density-compact');
+    } else {
+      container.classList.remove('density-compact');
+    }
+
+    // Apply corner radius variables
+    let rad2xl = '16px';
+    let radXl = '12px';
+    let radLg = '8px';
+    if (cornerRadius === 'rounded') {
+      rad2xl = '24px';
+      radXl = '16px';
+      radLg = '12px';
+    } else if (cornerRadius === 'sharp') {
+      rad2xl = '0px';
+      radXl = '0px';
+      radLg = '0px';
+    }
+    container.style.setProperty('--radius-2xl', rad2xl);
+    container.style.setProperty('--radius-xl', radXl);
+    container.style.setProperty('--radius-lg', radLg);
+
+    // Apply accent color class and variable
+    container.classList.add('accent-custom');
+    let rgb = '16, 185, 129'; // emerald
+    if (accentColor === 'blue') rgb = '59, 130, 246';
+    else if (accentColor === 'purple') rgb = '168, 85, 247';
+    else if (accentColor === 'rose') rgb = '244, 63, 94';
+    else if (accentColor === 'amber') rgb = '245, 158, 11';
+    else if (accentColor === 'indigo') rgb = '99, 102, 241';
+    container.style.setProperty('--accent-rgb', rgb);
+
+    // If mouse interaction is disabled or coarse pointer, do not track mouse movement
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
+    if (!mouseInteraction || isTouch) {
+      container.style.setProperty('--mouse-glow-opacity', '0');
+      return;
+    }
+
+    container.style.removeProperty('--mouse-glow-opacity');
+
+    let frameId: number;
+    const handleMove = (e: MouseEvent) => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        container.style.setProperty('--mouse-x', `${x}px`);
+        container.style.setProperty('--mouse-y', `${y}px`);
+      });
+    };
+
+    container.addEventListener('mousemove', handleMove, { passive: true });
+    return () => {
+      container.removeEventListener('mousemove', handleMove);
+      cancelAnimationFrame(frameId);
+    };
+  }, [user?.appearanceSettings]);
 
   // Global button ripple listener
   useEffect(() => {
@@ -360,37 +435,14 @@ function DashboardLayout() {
 
         {/* 2. Main Workspace Block */}
         <div 
-          className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative"
-          onMouseMove={handleMouseMove}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
+          ref={containerRef}
+          className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative workspace-container"
         >
           {/* Subtle Ambient Aurora Background */}
           <AuroraBackground theme={theme} />
 
           {/* Mouse Follow Radial Light Glow */}
-          {isHovered && (
-            <div
-              className="pointer-events-none absolute rounded-full opacity-70 z-0 transition-opacity duration-500"
-              style={{
-                width: '450px',
-                height: '450px',
-                background: theme === 'light' 
-                  ? 'radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0) 70%)'
-                  : theme === 'midnight'
-                  ? 'radial-gradient(circle, rgba(14, 165, 233, 0.08) 0%, rgba(14, 165, 233, 0) 70%)'
-                  : theme === 'sunset'
-                  ? 'radial-gradient(circle, rgba(239, 68, 68, 0.06) 0%, rgba(239, 68, 68, 0) 70%)'
-                  : theme === 'forest'
-                  ? 'radial-gradient(circle, rgba(34, 197, 94, 0.06) 0%, rgba(34, 197, 94, 0) 70%)'
-                  : theme === 'amethyst'
-                  ? 'radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, rgba(168, 85, 247, 0) 70%)'
-                  : 'radial-gradient(circle, rgba(16, 185, 129, 0.07) 0%, rgba(16, 185, 129, 0) 70%)',
-                left: mousePos.x - 225,
-                top: mousePos.y - 225,
-              }}
-            />
-          )}
+          <div className="mouse-glow pointer-events-none absolute inset-0 z-0 hidden md:block" />
           
           {/* Upper Header Control Actions */}
           <Header 

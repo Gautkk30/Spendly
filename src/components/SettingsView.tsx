@@ -14,11 +14,15 @@ import {
   Sparkles,
   Key,
   Trash2,
-  LogOut
+  LogOut,
+  Palette,
+  Sliders,
+  Database,
+  Info
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { CURRENCIES, DEFAULT_AVATAR } from '../data/defaultData';
-import { CurrencyCode } from '../types';
+import { CurrencyCode, AppearanceConfig, DEFAULT_APPEARANCE } from '../types';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -79,7 +83,7 @@ export const SettingsView: React.FC = () => {
   const [avatar, setAvatar] = useState('');
 
   // Setting active subcategories tab
-  const [activeTab, setActiveTab] = useState<'saas' | 'notifications' | 'security'>('saas');
+  const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'security' | 'notifications' | 'preferences' | 'data' | 'about'>('profile');
 
   // Local state for Notifications tab
   const [emailDigest, setEmailDigest] = useState(true);
@@ -94,6 +98,19 @@ export const SettingsView: React.FC = () => {
   const [securitySuccess, setSecuritySuccess] = useState(false);
   const [simulatedApiKey] = useState(() => 'sp_live_' + Math.random().toString(36).substring(2, 18).toUpperCase());
 
+  // Local state for Appearance tab
+  const [backgroundTheme, setBackgroundTheme] = useState<'aurora' | 'mesh' | 'glass' | 'minimal' | 'pure-dark'>('aurora');
+  const [animationIntensity, setAnimationIntensity] = useState<'off' | 'low' | 'medium' | 'high'>('medium');
+  const [mouseInteraction, setMouseInteraction] = useState(true);
+  const [auroraSpeed, setAuroraSpeed] = useState<'slow' | 'normal' | 'fast'>('slow');
+  const [backgroundOpacity, setBackgroundOpacity] = useState(30);
+  const [blurStrength, setBlurStrength] = useState<'low' | 'medium' | 'high'>('high');
+  const [cardTransparency, setCardTransparency] = useState(40);
+  const [uiDensity, setUiDensity] = useState<'comfortable' | 'compact'>('comfortable');
+  const [cornerRadius, setCornerRadius] = useState<'rounded' | 'balanced' | 'sharp'>('balanced');
+  const [accentColor, setAccentColor] = useState<'emerald' | 'blue' | 'purple' | 'rose' | 'amber' | 'indigo'>('emerald');
+  const [appearanceSuccess, setAppearanceSuccess] = useState(false);
+
   const THEME_PRESETS = [
     { id: 'light', name: 'Classic Light', desc: 'Squeaky clean light zinc layout', bg: 'bg-zinc-50', text: 'text-zinc-900', accent: 'bg-emerald-500' },
     { id: 'dark', name: 'Spendly Dark', desc: 'Sophisticated deep charcoal base', bg: 'bg-[#09090b]', text: 'text-zinc-100', accent: 'bg-emerald-400' },
@@ -104,6 +121,75 @@ export const SettingsView: React.FC = () => {
   ];
 
   const isLight = theme === 'light';
+
+  // Real-time live update synchronizer for appearance attributes
+  const updateAppearanceSetting = async (key: string, value: any) => {
+    // Instantly modify CSS variables on root workspace container for a lag-free responsive UI
+    const container = document.querySelector('.workspace-container') as HTMLDivElement;
+    if (container) {
+      if (key === 'backgroundOpacity') {
+        const elAurora = document.getElementById('app-bg-aurora');
+        const elMesh = document.getElementById('app-bg-mesh');
+        if (elAurora) elAurora.style.opacity = `${value / 100}`;
+        if (elMesh) elMesh.style.opacity = `${value / 100}`;
+      } else if (key === 'cardTransparency') {
+        container.style.setProperty('--card-transparency-light', `${value / 100}`);
+        container.style.setProperty('--card-transparency-dark', `${Math.min(0.8, (value / 100) * 0.75)}`);
+      } else if (key === 'blurStrength') {
+        const blurPx = value === 'low' ? '4px' : value === 'medium' ? '12px' : '24px';
+        container.style.setProperty('--card-blur', blurPx);
+      } else if (key === 'mouseInteraction') {
+        if (!value) {
+          container.style.setProperty('--mouse-glow-opacity', '0');
+        } else {
+          container.style.removeProperty('--mouse-glow-opacity');
+        }
+      } else if (key === 'uiDensity') {
+        if (value === 'compact') {
+          container.classList.add('density-compact');
+        } else {
+          container.classList.remove('density-compact');
+        }
+      } else if (key === 'cornerRadius') {
+        let rad2xl = '16px';
+        let radXl = '12px';
+        let radLg = '8px';
+        if (value === 'rounded') {
+          rad2xl = '24px';
+          radXl = '16px';
+          radLg = '12px';
+        } else if (value === 'sharp') {
+          rad2xl = '0px';
+          radXl = '0px';
+          radLg = '0px';
+        }
+        container.style.setProperty('--radius-2xl', rad2xl);
+        container.style.setProperty('--radius-xl', radXl);
+        container.style.setProperty('--radius-lg', radLg);
+      } else if (key === 'accentColor') {
+        let rgb = '16, 185, 129'; // emerald
+        if (value === 'blue') rgb = '59, 130, 246';
+        else if (value === 'purple') rgb = '168, 85, 247';
+        else if (value === 'rose') rgb = '244, 63, 94';
+        else if (value === 'amber') rgb = '245, 158, 11';
+        else if (value === 'indigo') rgb = '99, 102, 241';
+        container.style.setProperty('--accent-rgb', rgb);
+      }
+    }
+
+    // Persist immediately in database settings to keep it persistent across sessions
+    const currentSettings = {
+      ...DEFAULT_APPEARANCE,
+      ...(user?.appearanceSettings || {}),
+    };
+
+    await updateUser({
+      appearanceSettings: {
+        ...currentSettings,
+        [key]: value
+      }
+    });
+  };
 
   useEffect(() => {
     if (user) {
@@ -117,9 +203,20 @@ export const SettingsView: React.FC = () => {
         setBudgetThreshold(user.notificationPreferences.budgetThreshold ?? '80');
         setGoalMilestones(user.notificationPreferences.goalMilestones ?? true);
       }
-      if (user.appearanceSettings) {
-        setStartupPin(user.appearanceSettings.startupPin ?? false);
-      }
+      
+      // Load appearance customizer properties
+      const appSettings = user.appearanceSettings || {};
+      setStartupPin(appSettings.startupPin ?? false);
+      setBackgroundTheme(appSettings.backgroundTheme ?? 'aurora');
+      setAnimationIntensity(appSettings.animationIntensity ?? 'medium');
+      setMouseInteraction(appSettings.mouseInteraction ?? true);
+      setAuroraSpeed(appSettings.auroraSpeed ?? 'slow');
+      setBackgroundOpacity(appSettings.backgroundOpacity ?? 30);
+      setBlurStrength(appSettings.blurStrength ?? 'high');
+      setCardTransparency(appSettings.cardTransparency ?? 40);
+      setUiDensity(appSettings.uiDensity ?? 'comfortable');
+      setCornerRadius(appSettings.cornerRadius ?? 'balanced');
+      setAccentColor(appSettings.accentColor ?? 'emerald');
     }
   }, [user]);
 
@@ -259,9 +356,9 @@ export const SettingsView: React.FC = () => {
             </div>
             
             <button 
-              onClick={() => setActiveTab('saas')}
+              onClick={() => setActiveTab('profile')}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
-                activeTab === 'saas'
+                activeTab === 'profile'
                   ? isLight 
                     ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
                     : 'bg-zinc-900 text-white border-zinc-800'
@@ -270,14 +367,14 @@ export const SettingsView: React.FC = () => {
                     : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
               }`}
             >
-              <User size={14} className={activeTab === 'saas' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
-              <span>SaaS Configuration</span>
+              <User size={14} className={activeTab === 'profile' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>Personal Profile</span>
             </button>
 
             <button 
-              onClick={() => setActiveTab('notifications')}
+              onClick={() => setActiveTab('appearance')}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
-                activeTab === 'notifications'
+                activeTab === 'appearance'
                   ? isLight 
                     ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
                     : 'bg-zinc-900 text-white border-zinc-800'
@@ -286,8 +383,8 @@ export const SettingsView: React.FC = () => {
                     : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
               }`}
             >
-              <Bell size={14} className={activeTab === 'notifications' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
-              <span>Notifications Alerts</span>
+              <Palette size={14} className={activeTab === 'appearance' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>Appearance & Style</span>
             </button>
 
             <button 
@@ -303,14 +400,79 @@ export const SettingsView: React.FC = () => {
               }`}
             >
               <Key size={14} className={activeTab === 'security' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
-              <span>Security & Keyrings</span>
+              <span>Security Hub</span>
             </button>
+
+            <button 
+              onClick={() => setActiveTab('notifications')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
+                activeTab === 'notifications'
+                  ? isLight 
+                    ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
+                    : 'bg-zinc-900 text-white border-zinc-800'
+                  : isLight
+                    ? 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-100/50 hover:text-zinc-900'
+                    : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
+              }`}
+            >
+              <Bell size={14} className={activeTab === 'notifications' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>Alert Signals</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('preferences')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
+                activeTab === 'preferences'
+                  ? isLight 
+                    ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
+                    : 'bg-zinc-900 text-white border-zinc-800'
+                  : isLight
+                    ? 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-100/50 hover:text-zinc-900'
+                    : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
+              }`}
+            >
+              <Sliders size={14} className={activeTab === 'preferences' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>Preferences</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('data')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
+                activeTab === 'data'
+                  ? isLight 
+                    ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
+                    : 'bg-zinc-900 text-white border-zinc-800'
+                  : isLight
+                    ? 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-100/50 hover:text-zinc-900'
+                    : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
+              }`}
+            >
+              <Database size={14} className={activeTab === 'data' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>Data Management</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('about')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold rounded-xl border cursor-pointer transition-all ${
+                activeTab === 'about'
+                  ? isLight 
+                    ? 'bg-zinc-100 text-zinc-900 border-zinc-200/50' 
+                    : 'bg-zinc-900 text-white border-zinc-800'
+                  : isLight
+                    ? 'bg-transparent text-zinc-500 border-transparent hover:bg-zinc-100/50 hover:text-zinc-900'
+                    : 'bg-transparent text-zinc-400 border-transparent hover:bg-zinc-900/40 hover:text-white'
+              }`}
+            >
+              <Info size={14} className={activeTab === 'about' ? (isLight ? 'text-zinc-700' : 'text-zinc-200') : 'text-zinc-400'} />
+              <span>About App</span>
+            </button>
+
           </div>
         </div>
 
         {/* Right Side: Dynamic Tab Panels */}
         <div className="lg:col-span-2 space-y-6">
-          {activeTab === 'saas' && (
+          {activeTab === 'profile' && (
             <>
               {/* Panel 1: Account Info & Profile picture device upload */}
           <div className={cardStyle}>
@@ -390,54 +552,6 @@ export const SettingsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Currency Selector */}
-              <div>
-                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Default Currency</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                  className={selectStyle}
-                >
-                  {Object.keys(CURRENCIES).map(code => (
-                    <option key={code} value={code}>{code} ({CURRENCIES[code].symbol}) - {CURRENCIES[code].name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Dynamic Theme Selection Grid */}
-              <div className="border-t border-zinc-800/10 dark:border-zinc-800/50 pt-5 mt-2">
-                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2.5 ${textMutedStyle}`}>Workspace Custom Theme Palette</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {THEME_PRESETS.map((preset) => {
-                    const isSelected = theme === preset.id;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => setTheme(preset.id as any)}
-                        className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col gap-2 relative overflow-hidden ${
-                          isSelected 
-                            ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/10 shadow-sm' 
-                            : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-zinc-950 border-zinc-850 hover:bg-zinc-900/30'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className={`text-[11px] font-bold ${titleStyle}`}>{preset.name}</span>
-                          <div className="flex gap-1.5">
-                            <span className={`h-3 w-3 rounded-full ${preset.bg} border border-zinc-700/30 shadow-sm`}></span>
-                            <span className={`h-3 w-3 rounded-full ${preset.accent} shadow-sm`}></span>
-                          </div>
-                        </div>
-                        <span className="text-[9.5px] text-zinc-400 leading-relaxed">{preset.desc}</span>
-                        {isSelected && (
-                          <div className="absolute right-0 bottom-0 bg-emerald-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-tl-lg scale-90">✓</div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               <div className={`p-4 border rounded-2xl flex items-center justify-between ${
                 isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-950/20 border-zinc-850'
               }`}>
@@ -463,7 +577,7 @@ export const SettingsView: React.FC = () => {
                   }`}
                 >
                   <Save size={13} className="stroke-[2.5]" />
-                  <span>Save Configuration</span>
+                  <span>Save Profile Configuration</span>
                 </button>
               </div>
             </form>
@@ -613,6 +727,233 @@ export const SettingsView: React.FC = () => {
             </div>
           )}
           </>
+          )}
+
+          {activeTab === 'preferences' && (
+            <div className={`${cardStyle} animate-fade-in`}>
+              <div className={`flex items-center justify-between border-b pb-4 mb-5 ${
+                isLight ? 'border-zinc-100' : 'border-zinc-850/60'
+              }`}>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Sliders size={14} className="text-emerald-500" />
+                    <h3 className={`font-bold text-sm ${titleStyle}`}>System Preferences</h3>
+                  </div>
+                  <p className={`text-[10px] ${textMutedStyle}`}>Adjust default currency, application theme, and landing layout view preference.</p>
+                </div>
+                {saveSuccess && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/5 px-2.5 py-1 border border-emerald-500/10 rounded-full animate-fade-in">
+                    <CheckCircle2 size={11} /> Preferences Saved
+                  </span>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveProfile} className="space-y-5">
+                {/* Currency Selector */}
+                <div>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Default Currency</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                    className={selectStyle}
+                  >
+                    {Object.keys(CURRENCIES).map(code => (
+                      <option key={code} value={code}>{code} ({CURRENCIES[code].symbol}) - {CURRENCIES[code].name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Default Landing Tab View */}
+                <div>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Default Landing View</label>
+                  <select
+                    value={localStorage.getItem('spendly_default_tab') || 'dashboard'}
+                    onChange={(e) => {
+                      localStorage.setItem('spendly_default_tab', e.target.value);
+                      setSaveSuccess(true);
+                      setTimeout(() => setSaveSuccess(false), 3000);
+                    }}
+                    className={selectStyle}
+                  >
+                    <option value="dashboard">Dashboard Overview</option>
+                    <option value="transactions">Transactions Register</option>
+                    <option value="wallets">Accounts & Wallets</option>
+                    <option value="budgets">Budgets Planning</option>
+                    <option value="goals">Savings Goals</option>
+                  </select>
+                  <p className="text-[9.5px] text-zinc-400 mt-1">Select which screen Spendly defaults to on startup.</p>
+                </div>
+
+                {/* Dynamic Theme Selection Grid */}
+                <div className="border-t border-zinc-800/10 dark:border-zinc-800/50 pt-5 mt-2">
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2.5 ${textMutedStyle}`}>Workspace Custom Theme Palette</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {THEME_PRESETS.map((preset) => {
+                      const isSelected = theme === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setTheme(preset.id as any)}
+                          className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col gap-2 relative overflow-hidden ${
+                            isSelected 
+                              ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/10 shadow-sm' 
+                              : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-zinc-950 border-zinc-850 hover:bg-zinc-900/30'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className={`text-[11px] font-bold ${titleStyle}`}>{preset.name}</span>
+                            <div className="flex gap-1.5">
+                              <span className={`h-3 w-3 rounded-full ${preset.bg} border border-zinc-700/30 shadow-sm`}></span>
+                              <span className={`h-3 w-3 rounded-full ${preset.accent} shadow-sm`}></span>
+                            </div>
+                          </div>
+                          <span className="text-[9.5px] text-zinc-400 leading-relaxed">{preset.desc}</span>
+                          {isSelected && (
+                            <div className="absolute right-0 bottom-0 bg-emerald-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-tl-lg scale-90">✓</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-3">
+                  <button
+                    type="submit"
+                    className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 ${
+                      isLight
+                        ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                        : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950'
+                    }`}
+                  >
+                    <Save size={13} className="stroke-[2.5]" />
+                    <span>Save Preference Settings</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'data' && (
+            <div className={`${cardStyle} animate-fade-in space-y-6`}>
+              <div className={`flex items-center justify-between border-b pb-4 ${
+                isLight ? 'border-zinc-100' : 'border-zinc-850/60'
+              }`}>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Database size={14} className="text-emerald-500" />
+                    <h3 className={`font-bold text-sm ${titleStyle}`}>Data & Backups Hub</h3>
+                  </div>
+                  <p className={`text-[10px] ${textMutedStyle}`}>Export your financial sheets, clear temporary cache buffers, and manage database snapshots.</p>
+                </div>
+              </div>
+
+              {/* Data Export section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={`p-4 border rounded-xl flex flex-col justify-between gap-3 ${
+                  isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-950/20 border-zinc-850'
+                }`}>
+                  <div className="space-y-1">
+                    <span className={`text-xs font-bold block ${titleStyle}`}>Export Ledger (JSON Format)</span>
+                    <p className="text-[9.5px] text-zinc-400 leading-relaxed">Download a complete cryptographic backup containing all active accounts, wallets, and registered categories.</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                        exportedAt: new Date().toISOString(),
+                        version: 'Spendly Ledger v2.4'
+                      }, null, 2));
+                      const downloadAnchor = document.createElement('a');
+                      downloadAnchor.setAttribute("href", dataStr);
+                      downloadAnchor.setAttribute("download", `spendly_ledger_backup_${new Date().toISOString().split('T')[0]}.json`);
+                      document.body.appendChild(downloadAnchor);
+                      downloadAnchor.click();
+                      downloadAnchor.remove();
+                    }}
+                    className="mt-2 w-full py-2 px-3 text-center text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-all cursor-pointer"
+                  >
+                    Download JSON Backup
+                  </button>
+                </div>
+
+                <div className={`p-4 border rounded-xl flex flex-col justify-between gap-3 ${
+                  isLight ? 'bg-zinc-50/50 border-zinc-200' : 'bg-zinc-950/20 border-zinc-850'
+                }`}>
+                  <div className="space-y-1">
+                    <span className={`text-xs font-bold block ${titleStyle}`}>Flush Browser Cache</span>
+                    <p className="text-[9.5px] text-zinc-400 leading-relaxed">Hard reset local storage settings, cached visual assets, state buffers, and custom layouts to default.</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (confirm('Are you absolutely sure you want to flush all custom appearance configurations and preferences? Your transactions ledger is stored safely on MongoDB, but custom offline theme states will reset.')) {
+                        localStorage.clear();
+                        window.location.reload();
+                      }
+                    }}
+                    className="mt-2 w-full py-2 px-3 text-center text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 transition-all cursor-pointer"
+                  >
+                    Reset & Clear Cache
+                  </button>
+                </div>
+              </div>
+
+              {/* Database Storage metrics */}
+              <div className="p-4 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="space-y-0.5">
+                    <span className={`text-xs font-bold block ${titleStyle}`}>MongoDB Cloud Status</span>
+                    <p className="text-[9.5px] text-zinc-400">Direct server synchronization state.</p>
+                  </div>
+                  <span className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    SYNCED & SECURE
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'about' && (
+            <div className={`${cardStyle} animate-fade-in space-y-6`}>
+              <div className="flex flex-col items-center justify-center text-center p-6 bg-zinc-50/20 dark:bg-zinc-950/20 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800/80">
+                {appLogo ? (
+                  <img src={appLogo} alt={appName} className="h-14 w-14 rounded-2xl object-cover shadow-md mb-3" />
+                ) : (
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-emerald-400 flex items-center justify-center shadow-lg mb-3 shadow-emerald-500/10">
+                    <Sparkles size={26} className="text-white" />
+                  </div>
+                )}
+                <h3 className={`text-lg font-extrabold tracking-tight ${titleStyle}`}>{appName}</h3>
+                <p className="text-xs text-emerald-500 font-semibold">{tagline || 'Smarter Wealth & Ledger Auditing Suite'}</p>
+                <span className="mt-2.5 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-800">
+                  VERSION 2.4.0-RELEASE (BUILD #7A4F2C)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1 p-4 border rounded-xl bg-zinc-950/5 border-zinc-800/20">
+                  <span className={`text-xs font-bold block ${titleStyle}`}>Cryptographic Encryption</span>
+                  <p className="text-[9.5px] text-zinc-400 leading-relaxed">Transactions are stored and audited on a MongoDB cluster. Authenticated requests use robust security keychains and startup PIN verification.</p>
+                </div>
+
+                <div className="space-y-1 p-4 border rounded-xl bg-zinc-950/5 border-zinc-800/20">
+                  <span className={`text-xs font-bold block ${titleStyle}`}>PWA Capabilities</span>
+                  <p className="text-[9.5px] text-zinc-400 leading-relaxed">Spendly operates offline-first using client-side service workers, caching assets automatically for high performance on both iOS and Android devices.</p>
+                </div>
+              </div>
+
+              <div className="border-t border-zinc-800/10 dark:border-zinc-800/40 pt-4 flex flex-col sm:flex-row items-center justify-between text-[10px] text-zinc-400">
+                <span>© 2026 Spendly Ltd. All Rights Reserved.</span>
+                <div className="flex gap-4 mt-2 sm:mt-0 font-semibold">
+                  <a href="#" className="hover:underline">Terms of Service</a>
+                  <a href="#" className="hover:underline">Privacy Policy</a>
+                  <a href="#" className="hover:underline">License Details</a>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Panel: Notifications Alerts tab content */}
@@ -863,6 +1204,310 @@ export const SettingsView: React.FC = () => {
                     <span>Save Security Configuration</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Panel: Appearance customizer tab content */}
+          {activeTab === 'appearance' && (
+            <div className={`${cardStyle} animate-fade-in`}>
+              <div className={`flex items-center justify-between border-b pb-4 mb-5 ${
+                isLight ? 'border-zinc-100' : 'border-zinc-850/60'
+              }`}>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Palette size={14} className="text-emerald-500" />
+                    <h3 className={`font-bold text-sm ${titleStyle}`}>Premium Appearance & Glassmorphism</h3>
+                  </div>
+                  <p className={`text-[10px] ${textMutedStyle}`}>Customize background styles, animations, speeds, blur filters, and card opacities.</p>
+                </div>
+                {appearanceSuccess && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/5 px-2.5 py-1 border border-emerald-500/10 rounded-full animate-fade-in">
+                    <CheckCircle2 size={11} /> Settings Saved
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                
+                {/* 1. Background Theme selection */}
+                <div>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2.5 ${textMutedStyle}`}>Background Style</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+                    {[
+                      { id: 'aurora', name: 'Aurora', desc: 'Flowing colorful light' },
+                      { id: 'mesh', name: 'Mesh Gradient', desc: 'Premium liquid layers' },
+                      { id: 'glass', name: 'Glass', desc: 'Minimal static glow' },
+                      { id: 'minimal', name: 'Minimal', desc: 'Elegant static gradient' },
+                      { id: 'pure-dark', name: 'Pure Dark', desc: 'Maximum contrast' },
+                    ].map((t) => {
+                      const isSelected = backgroundTheme === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => {
+                            setBackgroundTheme(t.id as any);
+                            updateAppearanceSetting('backgroundTheme', t.id);
+                          }}
+                          className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between h-20 relative overflow-hidden ${
+                            isSelected 
+                              ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/10' 
+                              : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-zinc-950 border-zinc-850 hover:bg-zinc-900/30'
+                          }`}
+                        >
+                          <span className={`text-[11px] font-bold block ${titleStyle}`}>{t.name}</span>
+                          <span className="text-[8.5px] text-zinc-400 leading-tight block">{t.desc}</span>
+                          {isSelected && (
+                            <div className="absolute right-0 bottom-0 bg-emerald-500 text-white text-[8px] font-bold px-1 py-0.5 rounded-tl-md">✓</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Interactive settings and intensities side-by-side */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-zinc-800/10 dark:border-zinc-800/40 pt-4">
+                  {/* Animation Intensity */}
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Animation Intensity</label>
+                    <select
+                      value={animationIntensity}
+                      onChange={(e) => {
+                        setAnimationIntensity(e.target.value as any);
+                        updateAppearanceSetting('animationIntensity', e.target.value);
+                      }}
+                      className={selectStyle}
+                    >
+                      <option value="off">Off (Static background)</option>
+                      <option value="low">Low (Fewer animated objects)</option>
+                      <option value="medium">Medium (Standard movement)</option>
+                      <option value="high">High (Full ambient depth)</option>
+                    </select>
+                  </div>
+
+                  {/* Aurora Speed */}
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Animation Speed</label>
+                    <select
+                      value={auroraSpeed}
+                      onChange={(e) => {
+                        setAuroraSpeed(e.target.value as any);
+                        updateAppearanceSetting('auroraSpeed', e.target.value);
+                      }}
+                      className={selectStyle}
+                      disabled={animationIntensity === 'off'}
+                    >
+                      <option value="slow">Slow (Smooth & calming)</option>
+                      <option value="normal">Normal (Moderate flow)</option>
+                      <option value="fast">Fast (Dynamic energy)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 3. Sliders & Blur strength */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-zinc-800/10 dark:border-zinc-800/40 pt-4">
+                  
+                  {/* Background Opacity Slider */}
+                  <div className="p-3.5 border rounded-xl bg-zinc-50/10 dark:bg-zinc-950/10 border-zinc-200 dark:border-zinc-850">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-[11px] font-bold ${titleStyle}`}>Background Opacity</span>
+                      <span className="text-[10px] font-mono text-emerald-500 font-bold">{backgroundOpacity}%</span>
+                    </div>
+                    <input 
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={backgroundOpacity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setBackgroundOpacity(val);
+                        updateAppearanceSetting('backgroundOpacity', val);
+                      }}
+                      className="w-full h-1 bg-zinc-200 dark:bg-zinc-850 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <span className="text-[8.5px] text-zinc-400 mt-1 block">Adjust the visual visibility of gradient themes.</span>
+                  </div>
+
+                  {/* Card Transparency Slider */}
+                  <div className="p-3.5 border rounded-xl bg-zinc-50/10 dark:bg-zinc-950/10 border-zinc-200 dark:border-zinc-850">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-[11px] font-bold ${titleStyle}`}>Card Backdrop Transparency</span>
+                      <span className="text-[10px] font-mono text-emerald-500 font-bold">{cardTransparency}%</span>
+                    </div>
+                    <input 
+                      type="range"
+                      min="10"
+                      max="100"
+                      value={cardTransparency}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setCardTransparency(val);
+                        updateAppearanceSetting('cardTransparency', val);
+                      }}
+                      className="w-full h-1 bg-zinc-200 dark:bg-zinc-850 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <span className="text-[8.5px] text-zinc-400 mt-1 block">Tune glassmorphic opacity of dashboard panels.</span>
+                  </div>
+
+                </div>
+
+                {/* 4. Mouse glow and blur strength */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-zinc-800/10 dark:border-zinc-800/40 pt-4">
+                  {/* Blur Strength */}
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${textMutedStyle}`}>Gradient Blur Strength</label>
+                    <select
+                      value={blurStrength}
+                      onChange={(e) => {
+                        setBlurStrength(e.target.value as any);
+                        updateAppearanceSetting('blurStrength', e.target.value);
+                      }}
+                      className={selectStyle}
+                    >
+                      <option value="low">Low (Sharper glass shapes)</option>
+                      <option value="medium">Medium (Soft frosted layer)</option>
+                      <option value="high">High (Deep ethereal fog)</option>
+                    </select>
+                  </div>
+
+                  {/* Mouse Interaction Toggle */}
+                  <div className="p-3.5 border rounded-xl flex items-center justify-between bg-zinc-50/10 dark:bg-zinc-950/10 border-zinc-200 dark:border-zinc-850">
+                    <div className="flex flex-col pr-2">
+                      <span className={`text-[11px] font-bold ${titleStyle}`}>Mouse Radial Glow</span>
+                      <span className="text-[9px] text-zinc-400">Radial flashlight follows cursor on desktop devices.</span>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      checked={mouseInteraction}
+                      onChange={(e) => {
+                        setMouseInteraction(e.target.checked);
+                        updateAppearanceSetting('mouseInteraction', e.target.checked);
+                      }}
+                      className="h-4.5 w-4.5 cursor-pointer accent-zinc-900 dark:accent-zinc-100"
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Custom UI Density & Corner Radius */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-zinc-800/10 dark:border-zinc-800/40 pt-4">
+                  {/* UI Density */}
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${textMutedStyle}`}>UI Density Scaling</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'comfortable', name: 'Comfortable', desc: 'Spacious & relaxed' },
+                        { id: 'compact', name: 'Compact', desc: 'Maximum data density' },
+                      ].map((d) => {
+                        const isSel = uiDensity === d.id;
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => {
+                              setUiDensity(d.id as any);
+                              updateAppearanceSetting('uiDensity', d.id);
+                            }}
+                            className={`px-3 py-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                              isSel 
+                                ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/10' 
+                                : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-zinc-950 border-zinc-850 hover:bg-zinc-900/30'
+                            }`}
+                          >
+                            <span className={`text-[11px] font-bold block ${titleStyle}`}>{d.name}</span>
+                            <span className="text-[8.5px] text-zinc-400 leading-tight block">{d.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Corner Radius */}
+                  <div>
+                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${textMutedStyle}`}>Corner Geometry</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'rounded', name: 'Rounded', desc: 'Soft card curves' },
+                        { id: 'balanced', name: 'Balanced', desc: 'Standard curves' },
+                        { id: 'sharp', name: 'Sharp', desc: 'Brutalist 0px edges' },
+                      ].map((r) => {
+                        const isSel = cornerRadius === r.id;
+                        return (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => {
+                              setCornerRadius(r.id as any);
+                              updateAppearanceSetting('cornerRadius', r.id);
+                            }}
+                            className={`px-2.5 py-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                              isSel 
+                                ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/10' 
+                                : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-zinc-950 border-zinc-850 hover:bg-zinc-900/30'
+                            }`}
+                          >
+                            <span className={`text-[11px] font-bold block ${titleStyle}`}>{r.name}</span>
+                            <span className="text-[8px] text-zinc-400 leading-tight block">{r.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. Accent Color Customizer */}
+                <div className="border-t border-zinc-800/10 dark:border-zinc-800/40 pt-4">
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2.5 ${textMutedStyle}`}>Accent Hue System</label>
+                  <div className="flex flex-wrap gap-3">
+                    {[
+                      { id: 'emerald', name: 'Emerald', bg: 'bg-emerald-500' },
+                      { id: 'blue', name: 'Blue', bg: 'bg-blue-500' },
+                      { id: 'purple', name: 'Purple', bg: 'bg-purple-500' },
+                      { id: 'rose', name: 'Rose', bg: 'bg-rose-500' },
+                      { id: 'amber', name: 'Amber', bg: 'bg-amber-500' },
+                      { id: 'indigo', name: 'Indigo', bg: 'bg-indigo-500' },
+                    ].map((c) => {
+                      const isSel = accentColor === c.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setAccentColor(c.id as any);
+                            updateAppearanceSetting('accentColor', c.id);
+                          }}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                            isSel 
+                              ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500/10' 
+                              : isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-zinc-950 border-zinc-850 hover:bg-zinc-900/30'
+                          }`}
+                        >
+                          <span className={`w-3.5 h-3.5 rounded-full ${c.bg} shadow-sm`} />
+                          <span className={titleStyle}>{c.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-zinc-800/10 dark:border-zinc-800/40">
+                  <button
+                    onClick={() => {
+                      setAppearanceSuccess(true);
+                      setTimeout(() => setAppearanceSuccess(false), 3000);
+                    }}
+                    className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-2 ${
+                      isLight
+                        ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                        : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950'
+                    }`}
+                  >
+                    <Save size={13} className="stroke-[2.5]" />
+                    <span>Save Appearance Settings</span>
+                  </button>
+                </div>
+
               </div>
             </div>
           )}

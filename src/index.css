@@ -253,3 +253,229 @@ textarea:focus-visible {
   }
 }
 
+/* ==========================================
+   PHASE 4 PREMIUM MOUSE-FOLLOW RADIAL GLOW
+   ========================================== */
+
+/* Throttled GPU-accelerated passive radial mouse glow */
+.mouse-glow {
+  background: radial-gradient(
+    450px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+    var(--glow-color, rgba(16, 185, 129, 0.07)) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Smooth fade-in when entering main content */
+.workspace-container:hover .mouse-glow {
+  opacity: var(--mouse-glow-opacity, 1);
+}
+
+/* Global Card Glassmorphic Customization Overrides */
+[data-theme="light"] .rounded-2xl.bg-white {
+  background-color: rgba(255, 255, 255, var(--card-transparency-light, 1)) !important;
+  backdrop-filter: blur(var(--card-blur, 16px)) !important;
+  -webkit-backdrop-filter: blur(var(--card-blur, 16px)) !important;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), backdrop-filter 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.rounded-2xl.bg-zinc-900\/30 {
+  background-color: rgba(24, 24, 27, var(--card-transparency-dark, 0.3)) !important;
+  backdrop-filter: blur(var(--card-blur, 16px)) !important;
+  -webkit-backdrop-filter: blur(var(--card-blur, 16px)) !important;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), backdrop-filter 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Border Radius Custom overrides */
+.rounded-3xl {
+  border-radius: calc(var(--radius-2xl, 24px) * 1.3) !important;
+}
+.rounded-2xl {
+  border-radius: var(--radius-2xl, 16px) !important;
+}
+.rounded-xl {
+  border-radius: var(--radius-xl, 12px) !important;
+}
+.rounded-lg {
+  border-radius: var(--radius-lg, 8px) !important;
+}
+
+/* UI Density: Compact Mode Overrides */
+.density-compact .p-8 {
+  padding: 1.25rem !important;
+}
+.density-compact .p-6 {
+  padding: 1rem !important;
+}
+.density-compact .p-5 {
+  padding: 0.875rem !important;
+}
+.density-compact .px-6 {
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
+}
+.density-compact .py-6 {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+.density-compact .py-5 {
+  padding-top: 0.875rem !important;
+  padding-bottom: 0.875rem !important;
+}
+.density-compact .gap-6 {
+  gap: 1rem !important;
+}
+.density-compact .gap-8 {
+  gap: 1.25rem !important;
+}
+.density-compact .mb-6 {
+  margin-bottom: 1rem !important;
+}
+.density-compact .mb-5 {
+  margin-bottom: 0.875rem !important;
+}
+.density-compact .mt-6 {
+  margin-top: 1rem !important;
+}
+.density-compact .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem !important;
+}
+.density-compact .space-y-5 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.875rem !important;
+}
+.density-compact .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.75rem !important;
+}
+.density-compact table td {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+.density-compact table th {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+/* Dynamic Ambient Accent Color Custom Overrides */
+.accent-custom .text-emerald-500 {
+  color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .text-emerald-400 {
+  color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .text-emerald-600 {
+  color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .bg-emerald-500 {
+  background-color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .bg-emerald-400 {
+  background-color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .bg-emerald-600 {
+  background-color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .hover\:bg-emerald-400:hover {
+  background-color: rgba(var(--accent-rgb), 0.85) !important;
+}
+.accent-custom .hover\:bg-emerald-500:hover {
+  background-color: rgba(var(--accent-rgb), 0.9) !important;
+}
+.accent-custom .hover\:bg-emerald-600:hover {
+  background-color: rgba(var(--accent-rgb), 0.9) !important;
+}
+.accent-custom .border-emerald-500 {
+  border-color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .border-emerald-400 {
+  border-color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .bg-emerald-500\/10 {
+  background-color: rgba(var(--accent-rgb), 0.1) !important;
+}
+.accent-custom .bg-emerald-500\/15 {
+  background-color: rgba(var(--accent-rgb), 0.15) !important;
+}
+.accent-custom .bg-emerald-500\/5 {
+  background-color: rgba(var(--accent-rgb), 0.05) !important;
+}
+.accent-custom .focus\:border-emerald-500\/50:focus {
+  border-color: rgba(var(--accent-rgb), 0.5) !important;
+}
+.accent-custom .shadow-emerald-500\/10 {
+  --tw-shadow-color: rgba(var(--accent-rgb), 0.1) !important;
+}
+.accent-custom .accent-emerald-500 {
+  accent-color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .bg-gradient-to-tr.from-emerald-500.to-teal-400 {
+  background-image: linear-gradient(to top right, rgb(var(--accent-rgb)), rgba(var(--accent-rgb), 0.7)) !important;
+}
+.accent-custom .border-emerald-500\/20 {
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
+}
+.accent-custom .border-emerald-500\/10 {
+  border-color: rgba(var(--accent-rgb), 0.1) !important;
+}
+.accent-custom .bg-emerald-500\/10 {
+  background-color: rgba(var(--accent-rgb), 0.1) !important;
+}
+.accent-custom .bg-emerald-500\/20 {
+  background-color: rgba(var(--accent-rgb), 0.2) !important;
+}
+.accent-custom .text-emerald-500\/10 {
+  color: rgba(var(--accent-rgb), 0.1) !important;
+}
+.accent-custom .border-emerald-450 {
+  border-color: rgba(var(--accent-rgb), 0.95) !important;
+}
+.accent-custom .hover\:border-emerald-500\/20:hover {
+  border-color: rgba(var(--accent-rgb), 0.2) !important;
+}
+.accent-custom .hover\:text-emerald-400:hover {
+  color: rgb(var(--accent-rgb)) !important;
+}
+.accent-custom .bg-emerald-950\/20 {
+  background-color: rgba(var(--accent-rgb), 0.05) !important;
+}
+.accent-custom .border-emerald-900\/40 {
+  border-color: rgba(var(--accent-rgb), 0.15) !important;
+}
+.accent-custom .text-emerald-700 {
+  color: rgb(var(--accent-rgb)) !important;
+}
+
+/* Theme overrides for glow colors */
+[data-theme="light"] {
+  --glow-color: rgba(9, 9, 11, 0.04);
+}
+[data-theme="midnight"] {
+  --glow-color: rgba(14, 165, 233, 0.08);
+}
+[data-theme="sunset"] {
+  --glow-color: rgba(239, 68, 68, 0.06);
+}
+[data-theme="forest"] {
+  --glow-color: rgba(34, 197, 94, 0.06);
+}
+[data-theme="amethyst"] {
+  --glow-color: rgba(168, 85, 247, 0.08);
+}
+[data-theme="dark"] {
+  --glow-color: rgba(16, 185, 129, 0.07);
+}
+
+/* Accessibility / Device Overrides */
+@media (pointer: coarse) {
+  .mouse-glow {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mouse-glow {
+    display: none !important;
+  }
+}
+

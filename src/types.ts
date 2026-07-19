@@ -138,3 +138,30 @@ export interface Toast {
   type: 'success' | 'error' | 'info';
 }
 
+export interface AppearanceConfig {
+  backgroundTheme: 'aurora' | 'mesh' | 'glass' | 'minimal' | 'pure-dark';
+  animationIntensity: 'off' | 'low' | 'medium' | 'high';
+  mouseInteraction: boolean;
+  auroraSpeed: 'slow' | 'normal' | 'fast';
+  backgroundOpacity: number; // 0 to 100
+  blurStrength: 'low' | 'medium' | 'high';
+  cardTransparency: number; // 0 to 100;
+  uiDensity: 'comfortable' | 'compact';
+  cornerRadius: 'rounded' | 'balanced' | 'sharp';
+  accentColor: 'emerald' | 'blue' | 'purple' | 'rose' | 'amber' | 'indigo';
+}
+
+export const DEFAULT_APPEARANCE: AppearanceConfig = {
+  backgroundTheme: 'aurora',
+  animationIntensity: 'medium',
+  mouseInteraction: true,
+  auroraSpeed: 'slow',
+  backgroundOpacity: 30,
+  blurStrength: 'high',
+  cardTransparency: 40,
+  uiDensity: 'comfortable',
+  cornerRadius: 'balanced',
+  accentColor: 'emerald',
+};
+
+
