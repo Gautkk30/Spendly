@@ -10,6 +10,7 @@ import {
   Cell, 
   Sector 
 } from 'recharts';
+import { motion, AnimatePresence } from 'motion/react';
 import DynamicIcon from './Icons';
 
 interface CategoryBreakdownProps {
@@ -240,6 +241,9 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
                   activeShape={renderActiveShape}
                   onClick={(data, index, event) => handleSliceClick(data, index, event)}
                   style={{ outline: 'none' }}
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationEasing="ease-out"
                 >
                   {categoryChartData.map((entry, index) => (
                     <Cell 
@@ -255,6 +259,35 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = React.memo(({
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
+
+            {/* Premium Interactive Central Floating Tooltip */}
+            <AnimatePresence>
+              {activeCategoryFilter && analytics && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute pointer-events-none z-10 flex flex-col items-center justify-center text-center p-2 rounded-full"
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    top: 'calc(50% - 50px)',
+                    left: 'calc(50% - 50px)',
+                  }}
+                >
+                  <span className={`text-[9px] font-black tracking-tight uppercase truncate max-w-[85px] ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    {analytics.name}
+                  </span>
+                  <span className="text-xs font-black font-mono text-red-500 mt-0.5">
+                    {formatIndianNumber(analytics.total, currency)}
+                  </span>
+                  <span className={`text-[8px] font-bold mt-0.5 ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                    {analytics.percentage}%
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Right Column: Analytics Panel */}

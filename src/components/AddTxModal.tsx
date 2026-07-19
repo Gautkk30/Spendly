@@ -79,6 +79,20 @@ export const AddTxModal: React.FC<AddTxModalProps> = ({ isOpen, onClose, editTx 
     }
   }, [isOpen, editTx, wallets, categories]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   // Adjust category selection when type changes
   const handleTypeChange = (newType: 'income' | 'expense') => {
     setType(newType);

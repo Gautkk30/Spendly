@@ -64,14 +64,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
 
   const getHeaderBgClass = () => {
     switch (theme) {
-      case 'light': return 'bg-white/80 border-zinc-200';
-      case 'midnight': return 'bg-[#0a0f1d]/80 border-blue-900/20';
-      case 'forest': return 'bg-[#0c140f]/80 border-green-900/20';
-      case 'sunset': return 'bg-[#1a0e12]/80 border-red-900/20';
-      case 'amethyst': return 'bg-[#110c1c]/80 border-purple-900/20';
+      case 'light': return 'bg-white/40 border-zinc-200/50 shadow-sm';
+      case 'midnight': return 'bg-[#0a0f1d]/40 border-blue-950/40 shadow-lg shadow-black/10';
+      case 'forest': return 'bg-[#0c140f]/40 border-green-950/40 shadow-lg shadow-black/10';
+      case 'sunset': return 'bg-[#1a0e12]/40 border-red-950/40 shadow-lg shadow-black/10';
+      case 'amethyst': return 'bg-[#110c1c]/40 border-purple-950/40 shadow-lg shadow-black/10';
       case 'dark':
       default:
-        return 'bg-[#09090b]/80 border-zinc-800/60';
+        return 'bg-[#09090b]/40 border-zinc-800/40 shadow-lg shadow-black/10';
     }
   };
 
@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
       </div>
 
       {/* Search Input Area (Hidden on mobile, since there's search in Transactions tab) */}
-      <div className="hidden md:block w-80 relative">
+      <div className="hidden md:block w-64 focus-within:w-80 relative transition-all duration-300 ease-in-out">
         <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 ${
           isLight ? 'text-zinc-400' : 'text-zinc-500'
         }`} />
@@ -178,37 +178,46 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
         {/* Quick Actions Buttons (Hidden on mobile) */}
         {wallets.length > 0 && (
           <div className="hidden sm:flex items-center gap-2">
-            <button 
+            <motion.button 
               onClick={onOpenOCR}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors cursor-pointer ${
                 isLight
-                  ? 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200 shadow-sm'
-                  : 'bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border-zinc-800'
+                  ? 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200 shadow-sm hover:shadow-md'
+                  : 'bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border-zinc-800 hover:shadow-black/40'
               }`}
             >
               <Scan size={13} className={isLight ? 'text-zinc-500' : 'text-zinc-400'} />
               <span>Scan Receipt</span>
-            </button>
+            </motion.button>
             
-            <button 
+            <motion.button 
               onClick={onOpenAddTx}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer ${
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl shadow-sm transition-colors cursor-pointer ${
                 isLight
-                  ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
-                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950'
+                  ? 'bg-zinc-900 hover:bg-zinc-800 text-white hover:shadow-md'
+                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-950 hover:shadow-white/5'
               }`}
             >
               <Plus size={13} className="stroke-[2.5]" />
               <span>Add Transaction</span>
-            </button>
+            </motion.button>
           </div>
         )}
 
         {/* Scan Shortcut for Mobile ONLY */}
         {wallets.length > 0 && (
-          <button 
+          <motion.button 
             onClick={onOpenOCR}
-            className={`sm:hidden p-1.5 rounded-xl border transition-all cursor-pointer ${
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            className={`sm:hidden p-1.5 rounded-xl border transition-colors cursor-pointer ${
               isLight
                 ? 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600'
                 : 'bg-zinc-900/60 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
@@ -216,7 +225,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
             title="Scan Receipt with AI"
           >
             <Scan size={14} />
-          </button>
+          </motion.button>
         )}
 
         {/* Vertical Divider */}
@@ -247,9 +256,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
         </div>
 
         {/* Light/Dark Toggle */}
-        <button 
+        <motion.button 
           onClick={toggleTheme}
-          className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+          className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
             isLight
               ? 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600'
               : 'bg-zinc-900/60 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
@@ -257,13 +269,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
           {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-        </button>
+        </motion.button>
 
         {/* Notifications Dropdown Container */}
         <div className="relative">
-          <button 
+          <motion.button 
             onClick={() => setNotifOpen(!notifOpen)}
-            className={`p-1.5 rounded-xl border transition-all cursor-pointer relative ${
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            className={`p-1.5 rounded-xl border transition-colors cursor-pointer relative ${
               isLight
                 ? 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600'
                 : 'bg-zinc-900/60 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
@@ -273,7 +288,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddTx, onOpenOCR }) => {
             {unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-red-500 rounded-full" />
             )}
-          </button>
+          </motion.button>
 
           <AnimatePresence>
             {notifOpen && (

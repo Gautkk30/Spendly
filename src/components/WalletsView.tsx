@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { CURRENCIES } from '../data/defaultData';
 import { Wallet, WalletType, CurrencyCode } from '../types';
+import { SkeletonLoader } from './SkeletonLoader';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -52,9 +53,23 @@ const WALLET_TYPES = [
 ];
 
 export const WalletsView: React.FC = () => {
-  const { wallets, transactions, addWallet, updateWallet, deleteWallet, theme } = useApp();
+  const { wallets, transactions, addWallet, updateWallet, deleteWallet, theme, isLoading } = useApp();
 
   const isLight = theme === 'light';
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-2">
+            <div className="h-6 w-48 rounded bg-zinc-200/60 dark:bg-zinc-900/60 animate-pulse" />
+            <div className="h-4 w-72 rounded bg-zinc-200/60 dark:bg-zinc-900/60 animate-pulse" />
+          </div>
+        </div>
+        <SkeletonLoader variant="card" count={3} className="grid grid-cols-1 md:grid-cols-3 gap-5" />
+      </div>
+    );
+  }
 
   // Form / Modal States
   const [modalOpen, setModalOpen] = useState(false);

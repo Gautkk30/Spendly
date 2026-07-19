@@ -14,17 +14,18 @@ import AddTxModal from './components/AddTxModal';
 import AddWalletModal from './components/AddWalletModal';
 import OCRModal from './components/OCRModal';
 import BottomNavigation from './components/BottomNavigation';
-import { Loader2, AlertCircle, Trash2, Plus, ArrowRight, Mail, User, ShieldAlert, Sparkles, RotateCcw } from 'lucide-react';
+import { Loader2, AlertCircle, Trash2, Plus, ArrowRight, Mail, User, ShieldAlert, Sparkles, RotateCcw, Check, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CommandPalette } from './components/CommandPalette';
 import { WelcomeTour } from './components/WelcomeTour';
 import PWAManager from './components/PWAManager';
+import { AuroraBackground } from './components/AuroraBackground';
 
 const appAnimationVariants = {
   loading: {
-    filter: 'blur(16px)',
-    scale: 0.98,
-    opacity: 0.45,
+    filter: 'blur(0px)',
+    scale: 1,
+    opacity: 1,
   },
   loaded: {
     filter: 'blur(0px)',
@@ -119,7 +120,9 @@ function DashboardLayout() {
     triggerUndo,
     dismissUndo,
     isAddWalletOpen,
-    setAddWalletOpen
+    setAddWalletOpen,
+    toasts,
+    showToast
   } = useApp();
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -132,6 +135,75 @@ function DashboardLayout() {
   
   // Hold active transaction being edited
   const [editingTx, setEditingTx] = useState<any | null>(null);
+
+  // Mouse Tracking for Radial Glow Follow Effect
+  const [mousePos, setMousePos] = useState({ x: -200, y: -200 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  };
+
+  // Global button ripple listener
+  useEffect(() => {
+    const handleGlobalRipple = (e: MouseEvent) => {
+      const button = (e.target as HTMLElement).closest('button');
+      if (!button) return;
+      if (button.classList.contains('no-ripple')) return;
+
+      const circle = document.createElement('span');
+      const dialogueRect = button.getBoundingClientRect();
+      
+      const diameter = Math.max(dialogueRect.width, dialogueRect.height);
+      const radius = diameter / 2;
+
+      circle.style.width = circle.style.height = `${diameter}px`;
+      circle.style.left = `${e.clientX - dialogueRect.left - radius}px`;
+      circle.style.top = `${e.clientY - dialogueRect.top - radius}px`;
+      circle.classList.add('ripple-span');
+
+      if (theme === 'light') {
+        circle.style.backgroundColor = 'rgba(0, 0, 0, 0.08)';
+      } else {
+        circle.style.backgroundColor = 'rgba(255, 255, 255, 0.14)';
+      }
+
+      const originalPosition = window.getComputedStyle(button).position;
+      if (originalPosition === 'static') {
+        button.style.position = 'relative';
+      }
+      const originalOverflow = window.getComputedStyle(button).overflow;
+      if (originalOverflow !== 'hidden') {
+        button.style.overflow = 'hidden';
+      }
+
+      button.appendChild(circle);
+
+      setTimeout(() => {
+        circle.remove();
+      }, 500);
+    };
+
+    document.addEventListener('click', handleGlobalRipple);
+    return () => {
+      document.removeEventListener('click', handleGlobalRipple);
+    };
+  }, [theme]);
+
+  // Intercept all default alert() calls across the app to render as custom toasts
+  useEffect(() => {
+    const originalAlert = window.alert;
+    window.alert = (message: string) => {
+      showToast(message, 'info');
+    };
+    return () => {
+      window.alert = originalAlert;
+    };
+  }, [showToast]);
 
   // Trigger tour automatically for new users after 1.2 seconds
   useEffect(() => {
@@ -235,6 +307,19 @@ function DashboardLayout() {
     }
   };
 
+  const getFabBgClass = () => {
+    switch (theme) {
+      case 'midnight': return 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/30';
+      case 'forest': return 'bg-teal-500 hover:bg-teal-600 text-white shadow-lg shadow-teal-500/30';
+      case 'sunset': return 'bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/30';
+      case 'amethyst': return 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/30';
+      case 'light': return 'bg-zinc-900 hover:bg-zinc-800 text-white shadow-lg shadow-zinc-950/20';
+      case 'dark':
+      default:
+        return 'bg-emerald-500 hover:bg-emerald-600 text-zinc-950 shadow-lg shadow-emerald-500/30';
+    }
+  };
+
   if (!user) {
     return (
       <>
@@ -267,13 +352,45 @@ function DashboardLayout() {
         variants={appAnimationVariants}
         animate={isLoading ? "loading" : "loaded"}
         className={`h-screen flex ${getThemeBgClass()} w-full relative overflow-hidden`}
+        data-theme={theme}
       >
         
         {/* 1. Left Animated Collapsible Sidebar */}
         <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
 
         {/* 2. Main Workspace Block */}
-        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <div 
+          className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {/* Subtle Ambient Aurora Background */}
+          <AuroraBackground theme={theme} />
+
+          {/* Mouse Follow Radial Light Glow */}
+          {isHovered && (
+            <div
+              className="pointer-events-none absolute rounded-full opacity-70 z-0 transition-opacity duration-500"
+              style={{
+                width: '450px',
+                height: '450px',
+                background: theme === 'light' 
+                  ? 'radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0) 70%)'
+                  : theme === 'midnight'
+                  ? 'radial-gradient(circle, rgba(14, 165, 233, 0.08) 0%, rgba(14, 165, 233, 0) 70%)'
+                  : theme === 'sunset'
+                  ? 'radial-gradient(circle, rgba(239, 68, 68, 0.06) 0%, rgba(239, 68, 68, 0) 70%)'
+                  : theme === 'forest'
+                  ? 'radial-gradient(circle, rgba(34, 197, 94, 0.06) 0%, rgba(34, 197, 94, 0) 70%)'
+                  : theme === 'amethyst'
+                  ? 'radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, rgba(168, 85, 247, 0) 70%)'
+                  : 'radial-gradient(circle, rgba(16, 185, 129, 0.07) 0%, rgba(16, 185, 129, 0) 70%)',
+                left: mousePos.x - 225,
+                top: mousePos.y - 225,
+              }}
+            />
+          )}
           
           {/* Upper Header Control Actions */}
           <Header 
@@ -359,9 +476,10 @@ function DashboardLayout() {
         {/* Floating Glassmorphic Mobile Bottom Navigation */}
         <BottomNavigation onOpenAddTx={() => setAddTxOpen(true)} />
 
-        {/* Mobile Command Palette FAB Launcher */}
-        <div className="md:hidden fixed bottom-20 right-4 z-30">
+        {/* Mobile Command Palette FAB Launcher (Left Side) */}
+        <div className="md:hidden fixed bottom-20 left-4 z-30">
           <motion.button
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setCommandPaletteOpen(true)}
             className="h-11 w-11 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-500/20 flex items-center justify-center text-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
@@ -370,6 +488,19 @@ function DashboardLayout() {
             <div className="w-full h-full rounded-full bg-zinc-950 flex items-center justify-center text-emerald-400 hover:text-emerald-300">
               <Sparkles size={16} className="stroke-[2.5]" />
             </div>
+          </motion.button>
+        </div>
+
+        {/* Mobile Add Transaction FAB (Right Side) */}
+        <div className="md:hidden fixed bottom-20 right-4 z-30">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setAddTxOpen(true)}
+            className={`h-11 w-11 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${getFabBgClass()}`}
+            aria-label="Add Transaction"
+          >
+            <Plus size={20} className="stroke-[3]" />
           </motion.button>
         </div>
 
@@ -429,6 +560,43 @@ function DashboardLayout() {
           )}
         </AnimatePresence>
 
+        {/* Premium Animated Toast Notifications Container */}
+        <div className="fixed top-6 right-6 z-50 flex flex-col gap-3 max-w-sm pointer-events-none">
+          <AnimatePresence>
+            {toasts && toasts.map((toast) => (
+              <motion.div
+                key={toast.id}
+                initial={{ opacity: 0, x: 80, y: -15, scale: 0.95 }}
+                animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 30, scale: 0.92, transition: { duration: 0.18 } }}
+                layout
+                className={`pointer-events-auto flex items-center gap-3 px-4 py-3.5 rounded-2xl border shadow-2xl backdrop-blur-xl ${
+                  theme === 'light'
+                    ? 'bg-white/95 border-zinc-200 text-zinc-900 shadow-zinc-200/40'
+                    : 'bg-zinc-950/90 border-zinc-800 text-zinc-100 shadow-black/80'
+                }`}
+              >
+                {toast.type === 'success' && (
+                  <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
+                    <Check size={13} className="stroke-[3]" />
+                  </div>
+                )}
+                {toast.type === 'error' && (
+                  <div className="h-6 w-6 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                    <AlertCircle size={13} className="stroke-[2.5]" />
+                  </div>
+                )}
+                {toast.type === 'info' && (
+                  <div className="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
+                    <Info size={13} className="stroke-[2.5]" />
+                  </div>
+                )}
+                <span className="text-xs font-semibold leading-tight">{toast.message}</span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
         {/* Dynamic Progressive Web App Manager */}
         <PWAManager />
 
@@ -436,7 +604,7 @@ function DashboardLayout() {
 
       {/* Cinematic Glassmorphic Loader Overlay */}
       <AnimatePresence>
-        {isLoading && (
+        {!user && isLoading && (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ 

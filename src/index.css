@@ -75,3 +75,181 @@ body {
   60% { transform: rotate( 0.0deg) }
   100% { transform: rotate( 0.0deg) }
 }
+
+/* ==========================================
+   PHASE 3 PREMIUM MICRO-INTERACTIONS
+   ========================================== */
+
+/* 1. Global Click Ripple Effect */
+.ripple-span {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple-effect 0.5s cubic-bezier(0.1, 0.8, 0.3, 1);
+  pointer-events: none;
+}
+
+@keyframes ripple-effect {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* 2. Seamless Global Input Transitions & Focus Animations */
+input, select, textarea {
+  transition: border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus {
+  border-color: rgba(9, 9, 11, 0.35) !important;
+  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.04), 0 4px 12px -2px rgba(9, 9, 11, 0.03) !important;
+}
+
+[data-theme] input:focus,
+[data-theme] select:focus,
+[data-theme] textarea:focus {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08), 0 4px 12px -2px rgba(16, 185, 129, 0.05) !important;
+}
+
+/* 3. Global Premium Button Bounciness */
+button {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0.5px);
+  filter: brightness(0.96);
+}
+
+/* 4. Premium Card Lift & Glow Hover Styles */
+.p-6.rounded-2xl.border,
+.p-5.rounded-2xl.border,
+.p-4.rounded-2xl.border,
+.p-6.rounded-xl.border,
+.p-5.rounded-xl.border,
+.p-4.rounded-xl.border {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.p-6.rounded-2xl.border:hover,
+.p-5.rounded-2xl.border:hover,
+.p-4.rounded-2xl.border:hover,
+.p-6.rounded-xl.border:hover,
+.p-5.rounded-xl.border:hover,
+.p-4.rounded-xl.border:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.45) !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+[data-theme="light"] .p-6.rounded-2xl.border:hover,
+[data-theme="light"] .p-5.rounded-2xl.border:hover,
+[data-theme="light"] .p-4.rounded-2xl.border:hover,
+[data-theme="light"] .p-6.rounded-xl.border:hover,
+[data-theme="light"] .p-5.rounded-xl.border:hover,
+[data-theme="light"] .p-4.rounded-xl.border:hover {
+  box-shadow: 0 12px 24px -10px rgba(9, 9, 11, 0.08) !important;
+  border-color: rgba(9, 9, 11, 0.18) !important;
+}
+
+/* 5. Elegant Table Row Hover Effects */
+tr.group {
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+tr.group:hover {
+  background-color: rgba(16, 185, 129, 0.02) !important;
+}
+
+[data-theme="light"] tr.group:hover {
+  background-color: rgba(9, 9, 11, 0.015) !important;
+}
+
+/* 6. Premium Recharts Tooltip and Interactive Element Styling */
+.recharts-default-tooltip {
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  box-shadow: 0 12px 28px -5px rgba(0, 0, 0, 0.4) !important;
+  border-width: 1px !important;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+[data-theme="light"] .recharts-default-tooltip {
+  box-shadow: 0 12px 28px -5px rgba(9, 9, 11, 0.06) !important;
+}
+
+.recharts-sector, .recharts-bar-rectangle {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.recharts-sector:hover, .recharts-bar-rectangle:hover {
+  filter: brightness(1.08) saturate(1.06);
+  cursor: pointer;
+}
+
+/* ==========================================
+   PHASE 4 ACCESSIBILITY & GLOBAL SMOOTHING
+   ========================================== */
+
+/* 1. Global Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 2. Premium Accessible Focus Rings */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgb(16, 185, 129) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25) !important;
+}
+
+[data-theme="light"] button:focus-visible,
+[data-theme="light"] a:focus-visible,
+[data-theme="light"] input:focus-visible,
+[data-theme="light"] select:focus-visible,
+[data-theme="light"] textarea:focus-visible {
+  outline: 2px solid rgb(9, 9, 11) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(9, 9, 11, 0.15) !important;
+}
+
+/* 3. Reduced Motion Overrides */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-delay: 0s !important;
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: 0s !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
+}
+

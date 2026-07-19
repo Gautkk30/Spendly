@@ -4,6 +4,7 @@ import { FolderPlus, Trash2, Tag, Palette } from 'lucide-react';
 import { motion } from 'motion/react';
 import DynamicIcon from './Icons';
 import { EmptyState } from './EmptyState';
+import { SkeletonLoader } from './SkeletonLoader';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -30,7 +31,7 @@ const itemVariants = {
 };
 
 export const CategoriesView: React.FC = () => {
-  const { categories, addCategory, deleteCategory, theme } = useApp();
+  const { categories, addCategory, deleteCategory, theme, isLoading } = useApp();
 
   const [name, setName] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -38,6 +39,20 @@ export const CategoriesView: React.FC = () => {
   const [icon, setIcon] = useState('Utensils');
 
   const isLight = theme === 'light';
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-2">
+            <div className="h-6 w-48 rounded bg-zinc-200/60 dark:bg-zinc-900/60 animate-pulse" />
+            <div className="h-4 w-72 rounded bg-zinc-200/60 dark:bg-zinc-900/60 animate-pulse" />
+          </div>
+        </div>
+        <SkeletonLoader variant="list" count={1} />
+      </div>
+    );
+  }
 
   const iconsList = [
     'Utensils', 'Home', 'Car', 'ShoppingBag', 'Zap', 'Film', 'HeartPulse', 'Plane',

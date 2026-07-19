@@ -7,7 +7,8 @@ import {
   Budget, 
   Goal, 
   Notification, 
-  CurrencyCode 
+  CurrencyCode,
+  Toast
 } from '../types';
 
 interface AppContextType {
@@ -86,6 +87,8 @@ interface AppContextType {
   setMobileDrawerOpen: (open: boolean) => void;
   activeCategoryFilter: string | null;
   setActiveCategoryFilter: (catId: string | null) => void;
+  toasts: Toast[];
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -107,6 +110,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    const newToast: Toast = { id, message, type };
+    setToasts((prev) => [...prev, newToast]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
   const [theme, setThemeState] = useState<'light' | 'dark' | 'midnight' | 'forest' | 'sunset' | 'amethyst'>('dark');
   const [currency, setCurrencyState] = useState<CurrencyCode>('INR');
   const [activeView, setActiveView] = useState<string>('dashboard');
@@ -813,7 +826,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mobileDrawerOpen,
       setMobileDrawerOpen,
       activeCategoryFilter,
-      setActiveCategoryFilter
+      setActiveCategoryFilter,
+      toasts,
+      showToast
     }}>
       {children}
     </AppContext.Provider>

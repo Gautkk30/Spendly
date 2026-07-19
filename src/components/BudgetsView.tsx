@@ -4,6 +4,7 @@ import { Plus, Trash2, PieChart, AlertTriangle, CheckCircle2 } from 'lucide-reac
 import { formatIndianNumber } from '../utils/format';
 import { motion } from 'motion/react';
 import { EmptyState } from './EmptyState';
+import { SkeletonLoader } from './SkeletonLoader';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -30,13 +31,27 @@ const itemVariants = {
 };
 
 export const BudgetsView: React.FC = () => {
-  const { budgets, categories, addBudget, deleteBudget, transactions, theme } = useApp();
+  const { budgets, categories, addBudget, deleteBudget, transactions, theme, isLoading } = useApp();
 
   const [categoryId, setCategoryId] = useState('');
   const [amount, setAmount] = useState('');
   const [period, setPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
 
   const isLight = theme === 'light';
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-2">
+            <div className="h-6 w-48 rounded bg-zinc-200/60 dark:bg-zinc-900/60 animate-pulse" />
+            <div className="h-4 w-72 rounded bg-zinc-200/60 dark:bg-zinc-900/60 animate-pulse" />
+          </div>
+        </div>
+        <SkeletonLoader variant="list" count={1} />
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

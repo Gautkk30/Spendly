@@ -139,45 +139,76 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
           const Icon = item.icon;
           const isActive = activeView === item.id;
           return (
-            <button
+            <motion.button
               key={item.id}
               onClick={() => setActiveView(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer group relative ${
+              whileHover={{ 
+                scale: 1.02,
+                y: -1,
+                boxShadow: isLight 
+                  ? '0 4px 12px rgba(0,0,0,0.03)' 
+                  : '0 4px 12px rgba(0,0,0,0.15)'
+              }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer group relative ${
                 isActive 
                   ? isLight
-                    ? 'bg-zinc-100 text-zinc-900 border border-zinc-200/50 shadow-sm'
-                    : 'bg-zinc-900 text-white border border-zinc-800'
+                    ? 'text-zinc-900'
+                    : 'text-white'
                   : isLight
-                    ? 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30'
+                    ? 'text-zinc-500 hover:text-zinc-900'
+                    : 'text-zinc-400 hover:text-zinc-200'
               }`}
+              style={{
+                outline: 'none',
+                transformStyle: 'preserve-3d',
+                backfaceVisibility: 'hidden',
+              }}
             >
               {isActive && (
                 <motion.div 
-                  layoutId="activeSideIndicator"
-                  className="absolute left-0 w-0.5 h-4 rounded-r bg-emerald-500 dark:bg-zinc-200"
+                  layoutId="activeSidebarBg"
+                  transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                  className={`absolute inset-0 rounded-xl border ${
+                    isLight
+                      ? 'bg-zinc-100 border-zinc-200/50 shadow-sm'
+                      : 'bg-zinc-900 border-zinc-800'
+                  }`}
+                  style={{ zIndex: 0 }}
                 />
               )}
-              <Icon 
-                size={16} 
-                className={`transition-all ${
-                  isActive 
-                    ? 'text-emerald-500 dark:text-white' 
-                    : isLight 
-                      ? 'text-zinc-400 group-hover:text-zinc-700' 
-                      : 'text-zinc-500 group-hover:text-zinc-300'
-                }`} 
-              />
-              {!collapsed && (
-                <motion.span 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="truncate"
-                >
-                  {item.label}
-                </motion.span>
+              {isActive && (
+                <motion.div 
+                  layoutId="activeSideIndicator"
+                  transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                  className="absolute left-0 w-0.5 h-4 rounded-r bg-emerald-500 dark:bg-zinc-200"
+                  style={{ zIndex: 1 }}
+                />
               )}
-            </button>
+              <div className="relative z-10 flex items-center gap-3 w-full min-w-0">
+                <Icon 
+                  size={16} 
+                  className={`transition-all shrink-0 ${
+                    isActive 
+                      ? 'text-emerald-500 dark:text-white' 
+                      : isLight 
+                        ? 'text-zinc-400 group-hover:text-zinc-700' 
+                        : 'text-zinc-500 group-hover:text-zinc-300'
+                  }`} 
+                />
+                {!collapsed && (
+                  <motion.span 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="truncate"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </div>
+            </motion.button>
           );
         })}
       </nav>
@@ -296,8 +327,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
               className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             />
 
-            {/* Slide-out drawer panel */}
+            {/* Slide-out drawer panel with Swipe-to-Close drag gestures */}
             <motion.div
+              drag="x"
+              dragDirectionLock
+              dragConstraints={{ left: -280, right: 0 }}
+              dragElastic={{ left: 0.02, right: 0.15 }}
+              onDragEnd={(event, info) => {
+                if (info.offset.x < -60 || info.velocity.x < -300) {
+                  setMobileDrawerOpen(false);
+                }
+              }}
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}

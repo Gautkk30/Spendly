@@ -74,21 +74,28 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onOpenAddTx 
 
           if (item.isAction) {
             return (
-              <button
+              <motion.button
                 key={item.id}
                 onClick={onOpenAddTx}
-                className={`relative -translate-y-4 flex items-center justify-center h-12 w-12 rounded-full active:scale-95 transition-transform cursor-pointer ${getActionBgClass()}`}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.92 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                className={`relative -translate-y-4 flex items-center justify-center h-12 w-12 rounded-full cursor-pointer ${getActionBgClass()}`}
                 title="Log transaction entry"
+                style={{ y: 0 }}
               >
                 <Icon size={20} className="stroke-[3]" />
-              </button>
+              </motion.button>
             );
           }
 
           return (
-            <button
+            <motion.button
               key={item.id}
               onClick={() => setActiveView(item.id)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               className="flex flex-col items-center justify-center flex-1 py-1 px-2 select-none cursor-pointer"
             >
               <div className="relative">
@@ -115,7 +122,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ onOpenAddTx 
               }`}>
                 {item.label}
               </span>
-            </button>
+            </motion.button>
           );
         })}
       </div>

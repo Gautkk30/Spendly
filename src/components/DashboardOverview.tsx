@@ -37,13 +37,14 @@ import { motion } from 'motion/react';
 import DynamicIcon from './Icons';
 import { AnimatedCounter } from './AnimatedCounter';
 import { CategoryBreakdown } from './CategoryBreakdown';
+import { SkeletonLoader } from './SkeletonLoader';
 
 const cardContainerVariants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.04,
+      staggerChildren: 0.05,
       delayChildren: 0.02
     }
   }
@@ -95,7 +96,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
     setAddWalletOpen,
     setActiveView,
     activeCategoryFilter,
-    setActiveCategoryFilter
+    setActiveCategoryFilter,
+    isLoading
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'daily' | 'analytics'>('daily');
@@ -103,6 +105,38 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '12m'>('30d');
 
   const isLight = theme === 'light';
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Title row skeleton */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-2">
+            <div className={`h-6 w-48 rounded-md bg-zinc-200/60 dark:bg-zinc-900/60`} />
+            <div className={`h-4 w-72 rounded-md bg-zinc-200/60 dark:bg-zinc-900/60`} />
+          </div>
+        </div>
+
+        {/* 3 Stats cards skeleton */}
+        <SkeletonLoader variant="stat" count={3} className="grid grid-cols-1 sm:grid-cols-3 gap-5" />
+
+        {/* Chart + breakdown list skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <SkeletonLoader variant="chart" count={1} />
+          </div>
+          <div>
+            <SkeletonLoader variant="card" count={1} className="h-full" />
+          </div>
+        </div>
+
+        {/* Activity list skeleton */}
+        <div className="space-y-3">
+          <SkeletonLoader variant="list" count={1} />
+        </div>
+      </div>
+    );
+  }
   const symbol = CURRENCIES[currency]?.symbol || '$';
   const currentRate = CURRENCIES[currency]?.rate || 1.0;
 
@@ -738,7 +772,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
               </div>
               <div>
                 <div className={`font-bold text-xl tracking-tight mb-1 ${titleStyle}`}>
-                  {formatVal(convertedIncome)}
+                  <AnimatedCounter value={convertedIncome} />
                 </div>
                 <p className={`text-[10px] ${textMutedStyle}`}>All recorded credited capital</p>
               </div>
@@ -754,7 +788,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
               </div>
               <div>
                 <div className={`font-bold text-xl tracking-tight mb-1 text-red-500`}>
-                  {formatVal(convertedExpense)}
+                  <AnimatedCounter value={convertedExpense} />
                 </div>
                 <p className={`text-[10px] ${textMutedStyle}`}>All recorded outflows</p>
               </div>
@@ -770,7 +804,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
               </div>
               <div>
                 <div className={`font-bold text-xl tracking-tight mb-1 ${titleStyle}`}>
-                  {formatVal(netSavings)}
+                  <AnimatedCounter value={netSavings} />
                 </div>
                 <p className={`text-[10px] ${textMutedStyle}`}>Cumulative Savings Rate: {savingsRate.toFixed(1)}%</p>
               </div>
@@ -844,8 +878,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
                         contentStyle={{ backgroundColor: isLight ? '#ffffff' : '#18181b', borderColor: isLight ? '#e4e4e7' : '#27272a', borderRadius: '12px', fontSize: '11px', color: isLight ? '#18181b' : '#f4f4f5' }}
                         labelStyle={{ color: isLight ? '#71717a' : '#a1a1aa', fontSize: '10px', fontWeight: 'bold' }}
                       />
-                      <Area type="monotone" dataKey="Income" stroke="#10b981" strokeWidth={1.5} fillOpacity={1} fill="url(#colorInc)" name="Income" />
-                      <Area type="monotone" dataKey="Expense" stroke="#ef4444" strokeWidth={1.5} fillOpacity={1} fill="url(#colorExp)" name="Expense" />
+                      <Area type="monotone" dataKey="Income" stroke="#10b981" strokeWidth={1.5} fillOpacity={1} fill="url(#colorInc)" name="Income" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out" />
+                      <Area type="monotone" dataKey="Expense" stroke="#ef4444" strokeWidth={1.5} fillOpacity={1} fill="url(#colorExp)" name="Expense" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out" />
                     </AreaChart>
                   ) : chartType === 'bar' ? (
                     <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -855,8 +889,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
                         contentStyle={{ backgroundColor: isLight ? '#ffffff' : '#18181b', borderColor: isLight ? '#e4e4e7' : '#27272a', borderRadius: '12px', fontSize: '11px', color: isLight ? '#18181b' : '#f4f4f5' }}
                         labelStyle={{ color: isLight ? '#71717a' : '#a1a1aa', fontSize: '10px', fontWeight: 'bold' }}
                       />
-                      <Bar dataKey="Income" fill="#10b981" radius={[3, 3, 0, 0]} name="Income" />
-                      <Bar dataKey="Expense" fill="#ef4444" radius={[3, 3, 0, 0]} name="Expense" />
+                      <Bar dataKey="Income" fill="#10b981" radius={[3, 3, 0, 0]} name="Income" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out" />
+                      <Bar dataKey="Expense" fill="#ef4444" radius={[3, 3, 0, 0]} name="Expense" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out" />
                     </BarChart>
                   ) : (
                     <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -866,8 +900,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onOpenAddT
                         contentStyle={{ backgroundColor: isLight ? '#ffffff' : '#18181b', borderColor: isLight ? '#e4e4e7' : '#27272a', borderRadius: '12px', fontSize: '11px', color: isLight ? '#18181b' : '#f4f4f5' }}
                         labelStyle={{ color: isLight ? '#71717a' : '#a1a1aa', fontSize: '10px', fontWeight: 'bold' }}
                       />
-                      <Line type="monotone" dataKey="Income" stroke="#10b981" strokeWidth={1.5} dot={false} name="Income" />
-                      <Line type="monotone" dataKey="Expense" stroke="#ef4444" strokeWidth={1.5} dot={false} name="Expense" />
+                      <Line type="monotone" dataKey="Income" stroke="#10b981" strokeWidth={1.5} dot={false} name="Income" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out" />
+                      <Line type="monotone" dataKey="Expense" stroke="#ef4444" strokeWidth={1.5} dot={false} name="Expense" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out" />
                     </LineChart>
                   )}
                 </ResponsiveContainer>

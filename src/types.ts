@@ -131,3 +131,10 @@ export interface UserProfile {
   dashboardPreferences?: Record<string, any>;
   appearanceSettings?: Record<string, any>;
 }
+
+export interface Toast {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
